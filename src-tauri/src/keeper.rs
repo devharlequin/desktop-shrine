@@ -37,8 +37,10 @@ pub async fn summon_keeper(
     let ledger_dir = dir_of(&ledger);
     let offering_dir = dir_of(&offering_path);
 
-    let out = tauri::async_runtime::spawn_blocking(move || {
-        // claude is claude.cmd on Windows; go through cmd so PATH resolution works
+    let out = tauri::async_runtime::spawn_blocking(move || -> std::io::Result<std::process::Output> {
+        use std::io::Write;
+        // claude is claude.cmd on Windows; go through cmd so PATH resolution works.
+        // The prompt goes via STDIN — multi-line args do not survive the shell.
         let mut cmd = Command::new("cmd");
         // strip session env a parent Claude Code instance would leak into the child
         for (k, _) in std::env::vars() {
@@ -48,20 +50,24 @@ pub async fn summon_keeper(
             }
         }
         cmd.args([
-                "/C",
-                "claude",
-                "-p",
-                &prompt,
-                "--model",
-                "sonnet",
-                "--allowedTools",
-                "Read,Edit,Write",
-                "--add-dir",
-                &ledger_dir,
-                "--add-dir",
-                &offering_dir,
-            ]);
-        cmd.output()
+            "/C",
+            "claude",
+            "-p",
+            "--model",
+            "sonnet",
+            "--allowedTools",
+            "Read,Edit,Write",
+            "--add-dir",
+            &ledger_dir,
+            "--add-dir",
+            &offering_dir,
+        ]);
+        cmd.stdin(std::process::Stdio::piped());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        let mut child = cmd.spawn()?;
+        child.stdin.take().unwrap().write_all(prompt.as_bytes())?;
+        child.wait_with_output()
     })
     .await
     .map_err(|e| e.to_string())?

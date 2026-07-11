@@ -8,6 +8,7 @@ import { Moths } from './render/moths';
 import { ClaudingView } from './render/claudingView';
 import { Critters } from './render/critters';
 import { SandPatch, LeafSprites, SAND_RECT } from './render/sand';
+import { FallingLeaves, TREE } from './render/fallingLeaves';
 import { CeremonyDirector } from './render/ceremony';
 import { ClaudingBrain } from './core/clauding';
 import { timeOfDay, season } from './core/clock';
@@ -61,6 +62,14 @@ async function boot() {
 
   // --- persistent garden ---
   let garden: Garden = tickWeathering(await bridge.loadGarden(), Date.now());
+  // one-time sanitize: earlier builds spawned leaves midair (they looked like
+  // moths by the lanterns); keep only leaves on the ground or the steps
+  garden = {
+    ...garden,
+    leaves: garden.leaves.filter(l =>
+      l.y >= TREE.ground.y0 ||
+      (l.x >= TREE.steps.x0 && l.x <= TREE.steps.x1 && l.y >= TREE.steps.y0)),
+  };
   const save = () => bridge.saveGarden(garden);
 
   // --- sky behind everything ---
@@ -99,6 +108,15 @@ async function boot() {
   const critters = new Critters();
   critters.add(layers.get('cat'), 'cat', 34);
   critters.add(layers.get('mask_orange'), 'mask', 8);
+  scene.add(critters.hearts);
+
+  // --- the tree, keeper of leaves ---
+  const tree = new THREE.Mesh(
+    new THREE.PlaneGeometry(TREE.w, TREE.h),
+    new THREE.MeshLambertMaterial({ map: loadTex('tree'), transparent: true, alphaTest: 0.01 }),
+  );
+  tree.position.set(TREE.x, TREE.baseY + TREE.h / 2, 20);
+  scene.add(tree);
 
   // --- the tended ground ---
   const sand = new SandPatch();
@@ -106,6 +124,14 @@ async function boot() {
   scene.add(sand.mesh, leaves.group);
   sand.redraw(garden, Date.now());
   leaves.sync(garden);
+
+  const falling = new FallingLeaves();
+  scene.add(falling.group);
+  falling.onLand = p => {
+    garden = spawnLeaf(garden, p, Date.now());
+    leaves.sync(garden);
+    void save();
+  };
 
   // --- one resident firefly, when the shrine grants one ---
   const firefly = new THREE.Mesh(
@@ -168,14 +194,19 @@ async function boot() {
     });
   }
 
-  // --- rake & sweep ---
+  // --- rake, sweep, and pet ---
   const toVirtual = (e: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
     return { x: (e.clientX - r.left) / px.scale, y: (e.clientY - r.top) / px.scale };
   };
+  const toScene = (p: { x: number; y: number }) =>
+    ({ x: p.x - VIRTUAL_W / 2, y: VIRTUAL_H / 2 - p.y });
+  const CURSOR_RAKE = 'url(./cursors/rake.png) 4 20, grab';
+  const CURSOR_PAW = 'url(./cursors/paw.png) 12 12, pointer';
   let liveStroke: RakeStroke | null = null;
   canvas.addEventListener('pointerdown', e => {
     const p = toVirtual(e);
+    if (critters.petAt(toScene(p), performance.now() / 1000)) return; // pet > chores
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
     if (g === 'rake') liveStroke = { points: [p], t: Date.now() };
     if (g === 'sweep') {
@@ -194,7 +225,7 @@ async function boot() {
         liveStroke.points.push(p);
         sand.redraw(garden, Date.now(), liveStroke);
       }
-      canvas.style.cursor = 'grabbing';
+      canvas.style.cursor = CURSOR_RAKE;
       return;
     }
     if (e.buttons) {
@@ -204,8 +235,9 @@ async function boot() {
         leaves.sync(garden);
       }
     }
-    canvas.style.cursor =
-      classifyGesture(p, SAND_RECT, garden.leaves) === 'none' ? 'default' : 'grab';
+    canvas.style.cursor = critters.catAt(toScene(p))
+      ? CURSOR_PAW
+      : classifyGesture(p, SAND_RECT, garden.leaves) === 'none' ? 'default' : CURSOR_RAKE;
   });
   const endStroke = () => {
     if (liveStroke && liveStroke.points.length > 1) {
@@ -218,18 +250,14 @@ async function boot() {
   canvas.addEventListener('pointerup', () => { endStroke(); void save(); });
   canvas.addEventListener('pointerleave', endStroke);
 
-  // --- leaves drift in over the hours ---
+  // --- leaves fall from the tree over the hours ---
   const spawnSeasonalLeaves = () => {
     const s = season(now());
     if (s === 'winter' || garden.leaves.length > 40) return;
     const n = Math.floor(Math.random() * (s === 'autumn' ? 5 : 3)); // 0-4 autumn, 0-2 else
     for (let i = 0; i < n; i++) {
-      garden = spawnLeaf(garden, {
-        x: 30 + Math.random() * (VIRTUAL_W - 60),
-        y: 195 + Math.random() * 55,
-      }, Date.now());
+      setTimeout(() => falling.release(performance.now() / 1000), Math.random() * 20_000);
     }
-    if (n) { leaves.sync(garden); void save(); }
   };
   spawnSeasonalLeaves();
   setInterval(spawnSeasonalLeaves, 3600_000);
@@ -255,6 +283,8 @@ async function boot() {
             ceremony.drop({ name: p.split(/[\\/]/).pop()!, path: p });
           } else if (c.startsWith('hour:')) {
             DEV_HOUR = c.slice(5) === 'null' ? null : Number(c.slice(5));
+          } else if (c === 'leaf') {
+            falling.release(performance.now() / 1000);
           }
         }
       } catch { /* dev server gone */ }
@@ -304,6 +334,7 @@ async function boot() {
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
     critters.update(t, dt);
+    falling.update(dt, t);
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);

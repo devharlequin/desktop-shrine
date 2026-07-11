@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadTex } from './scene';
 
 export type CritterKind = 'cat' | 'mask';
 
@@ -7,7 +8,7 @@ interface Critter {
   kind: CritterKind;
   home: THREE.Vector3;
   range: number;         // how far from home it may wander (x)
-  mode: 'idle' | 'walk' | 'hop' | 'slump';
+  mode: 'idle' | 'walk' | 'hop' | 'slump' | 'petted';
   slumpUntil: number;
   targetX: number;
   nextAt: number;        // t when the next action may begin
@@ -18,7 +19,41 @@ interface Critter {
 /** The garden's small residents: the cat wanders and lounges, the masked
  *  spirits hop and look around. Sparse by design — mostly they are still. */
 export class Critters {
+  hearts = new THREE.Group();
   private cs: Critter[] = [];
+  private floating: { m: THREE.Mesh; born: number }[] = [];
+
+  /** Pet whatever is under the pointer (scene coords). Returns true if something purred. */
+  petAt(p: { x: number; y: number }, t: number): boolean {
+    for (const c of this.cs) {
+      if (c.kind !== 'cat') continue; // only the cat suffers affection, for now
+      const d = c.mesh.position;
+      if (Math.abs(p.x - d.x) < 15 && Math.abs(p.y - d.y) < 11) {
+        c.mode = 'petted';
+        c.hopStart = t;
+        c.slumpUntil = t + 2.6;
+        this.spawnHeart(d, t);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** True if the cat is under this scene point (for the paw cursor). */
+  catAt(p: { x: number; y: number }): boolean {
+    return this.cs.some(c => c.kind === 'cat'
+      && Math.abs(p.x - c.mesh.position.x) < 15 && Math.abs(p.y - c.mesh.position.y) < 11);
+  }
+
+  private spawnHeart(at: THREE.Vector3, t: number) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(5, 5),
+      new THREE.MeshBasicMaterial({ map: loadTex('heart'), transparent: true }),
+    );
+    m.position.set(at.x + (Math.random() * 8 - 4), at.y + 10, at.z + 1);
+    this.hearts.add(m);
+    this.floating.push({ m, born: t });
+  }
 
   add(mesh: THREE.Mesh | undefined, kind: CritterKind, range: number) {
     if (!mesh) return;
@@ -35,6 +70,15 @@ export class Critters {
   }
 
   update(t: number, dt: number) {
+    for (const h of [...this.floating]) {
+      const age = t - h.born;
+      h.m.position.y += 6 * dt;
+      (h.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - age / 1.6);
+      if (age > 1.6) {
+        this.hearts.remove(h.m);
+        this.floating.splice(this.floating.indexOf(h), 1);
+      }
+    }
     for (const c of this.cs) {
       if (c.mode === 'idle') {
         if (t < c.nextAt) continue;
@@ -76,6 +120,18 @@ export class Critters {
         } else {
           c.mesh.position.x += dir * step;
           c.mesh.position.y = c.home.y + Math.abs(Math.sin(t * 7)) * 0.6; // soft amble
+        }
+      } else if (c.mode === 'petted') {
+        if (t >= c.slumpUntil) {
+          c.mesh.scale.y = 1;
+          c.mesh.position.y = c.home.y;
+          c.mode = 'idle';
+          c.nextAt = t + 8 + Math.random() * 20;
+        } else {
+          // a happy little squish-and-lean-in
+          const k = t - c.hopStart;
+          c.mesh.scale.y = 1 - 0.1 * Math.abs(Math.sin(k * 6));
+          c.mesh.position.y = c.home.y + Math.abs(Math.sin(k * 6)) * 0.8;
         }
       } else if (c.mode === 'slump') {
         if (t >= c.slumpUntil) {

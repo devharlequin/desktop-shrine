@@ -30,11 +30,12 @@ for (const [name, content] of samples) {
   // strip session env a parent Claude Code instance would leak into the child
   const env = Object.fromEntries(Object.entries(process.env)
     .filter(([k]) => !/^(ANTHROPIC_|CLAUDE_?CODE|CLAUDECODE|CLAUDE_)/i.test(k)));
+  // prompt via STDIN — multi-line args do not survive the Windows shell
   const out = execFileSync('claude', [
-    '-p', full, '--model', 'sonnet',
+    '-p', '--model', 'sonnet',
     '--allowedTools', 'Read,Edit,Write',
     '--add-dir', dir,
-  ], { encoding: 'utf8', shell: true, env });
+  ], { encoding: 'utf8', shell: true, env, input: full });
   const line = out.trim().split('\n').reverse().find(l => l.trim().startsWith('{'));
   const check = (cond, msg) => { if (!cond) { failures++; console.error(`FAIL ${name}: ${msg}`); } };
   let v = null;
