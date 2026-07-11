@@ -228,7 +228,8 @@ A text file; a list of half-finished projects. Kept in the reliquary.
   full offering ceremony (move → keeper → response), ledger + MEMORY.md line, reliquary,
   3–4 behavioral responses, Tended Ground (rake + leaves), Tauri build.
 - **v1.5:** web build + static deploy, accretion system, visitors (cat, spirits, fox),
-  weather, keeper-notices-the-sand behaviors.
+  the Hours creatures (birds, moths, owl, butterfly), weather,
+  keeper-notices-the-sand behaviors. (v1 keeps one taste of it: moths at the candles.)
 - **Phase 2 (separate project):** graphify deep-brain sweep over memory dir + ledger.
 
 ## Non-goals
