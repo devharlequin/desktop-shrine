@@ -15,10 +15,8 @@
     "spirit_stone_r": { "rect": [1195, 725, 110, 115],   "z": 6 },
     "candle_l":       { "rect": [545, 665, 35, 55],      "z": 6 },
     "candle_r":       { "rect": [1010, 665, 35, 55],     "z": 6 },
-    "plate":          { "rect": [760, 830, 90, 50],      "z": 7 },
-    "mask_purple":    { "rect": [410, 840, 75, 65],      "z": 7 },
-    "mask_orange":    { "rect": [900, 810, 80, 85],      "z": 7 },
-    "cat":            { "rect": [615, 840, 80, 55],      "z": 7 },
-    "broom":          { "rect": [475, 870, 60, 50],      "z": 7 }
+    "mask_purple":    { "rect": [400, 830, 96, 75],      "z": 7, "eraseFromParent": true, "cutout": true },
+    "mask_orange":    { "rect": [890, 800, 100, 98],     "z": 7, "eraseFromParent": true, "cutout": true },
+    "cat":            { "rect": [605, 830, 100, 70],     "z": 7, "eraseFromParent": true, "cutout": true }
   }
 }

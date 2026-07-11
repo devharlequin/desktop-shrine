@@ -27,14 +27,55 @@ def grid():
     print(f"wrote tools/_grid.png ({im.width}x{im.height})")
 
 
+def erase_from(im: Image.Image, rect, sample_side: str):
+    """Fill rect with ground color sampled just outside it, per row/column,
+    so movable sprites are not baked into their parent layer."""
+    x, y, w, h = rect
+    if sample_side in ("left", "right"):
+        sx = x - 5 if sample_side == "left" else x + w + 5
+        for j in range(h):
+            c = im.getpixel((sx, y + j))
+            for i in range(w):
+                im.putpixel((x + i, y + j), c)
+    else:  # above / below
+        sy = y - 5 if sample_side == "above" else y + h + 5
+        for i in range(w):
+            c = im.getpixel((x + i, sy))
+            for j in range(h):
+                im.putpixel((x + i, y + j), c)
+
+
 def slice_all():
     im = Image.open(SRC).convert("RGBA")
     spec = json.loads(LAYERS.read_text())
     OUT.mkdir(parents=True, exist_ok=True)
+    # erase movable sprites from the flattened source BEFORE slicing parents,
+    # then slice the sprites themselves from the ORIGINAL pixels
+    original = im.copy()
+    for name, r in spec["layers"].items():
+        if r.get("eraseFromParent"):
+            erase_from(im, r["rect"], r.get("sampleSide", "left"))
     manifest = {}
     for name, r in spec["layers"].items():
         x, y, w, h = r["rect"]
-        tile = im.crop((x, y, x + w, y + h))
+        src = original if r.get("eraseFromParent") else im
+        tile = src.crop((x, y, x + w, y + h))
+        if r.get("cutout"):
+            # remove background by keying every color found on the tile border
+            border = set()
+            for i in range(tile.width):
+                border.add(tile.getpixel((i, 0))[:3])
+                border.add(tile.getpixel((i, tile.height - 1))[:3])
+            for j in range(tile.height):
+                border.add(tile.getpixel((0, j))[:3])
+                border.add(tile.getpixel((tile.width - 1, j))[:3])
+            tol = r.get("cutoutTolerance", 24)
+            px = tile.load()
+            for j in range(tile.height):
+                for i in range(tile.width):
+                    p = px[i, j]
+                    if any(abs(p[0]-b[0]) + abs(p[1]-b[1]) + abs(p[2]-b[2]) < tol for b in border):
+                        px[i, j] = (0, 0, 0, 0)
         if r.get("chroma"):  # remove flat sky color so shrine layers get transparency
             key = tuple(spec["skyColor"])
             tol = spec.get("chromaTolerance", 18)
