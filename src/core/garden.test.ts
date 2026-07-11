@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   emptyGarden, recordOffering, activeResponses, addRakeStroke, spawnLeaf,
   sweepLeavesNear, tickWeathering, strokeStrength, serializeGarden, parseGarden,
+  treeScale,
 } from './garden';
 
 const T0 = Date.parse('2026-07-10T12:00:00');
@@ -32,6 +33,17 @@ describe('garden', () => {
     g = sweepLeavesNear(g, { x: 102, y: 198 }, 12);
     expect(g.leaves.length).toBe(1);
     expect(g.leaves[0].x).toBe(300);
+  });
+
+  it('tree grows: sapling -> adult at 40 days -> ancient over a year', () => {
+    const g = { ...emptyGarden(), plantedAt: T0 };
+    const DAY = 86_400_000;
+    expect(treeScale(g, T0)).toBeCloseTo(0.4, 2);
+    expect(treeScale(g, T0 + 20 * DAY)).toBeCloseTo(0.7, 2);
+    expect(treeScale(g, T0 + 40 * DAY)).toBeCloseTo(1.0, 2);
+    expect(treeScale(g, T0 + 365 * DAY)).toBeCloseTo(2.1, 2);
+    expect(treeScale(g, T0 + 3650 * DAY)).toBeCloseTo(2.1, 2); // it stops, eventually
+    expect(treeScale(emptyGarden(), T0)).toBeCloseTo(0.4, 2);  // unplanted = sapling
   });
 
   it('serializes and parses, tolerating garbage', () => {

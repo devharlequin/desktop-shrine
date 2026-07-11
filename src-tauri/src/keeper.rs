@@ -87,6 +87,12 @@ pub async fn summon_keeper(
         if let Ok(home) = std::env::var("USERPROFILE") {
             cmd.current_dir(home);
         }
+        // no console window flashing over the shrine while the keeper is summoned
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
         cmd.stdin(std::process::Stdio::piped());
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());

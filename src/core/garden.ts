@@ -18,12 +18,14 @@ export interface Garden {
   plantedAt?: number;
 }
 
-const TREE_GROW_DAYS = 40;
-
-/** 0..1 — how grown the tree is. Starts a sapling, full canopy after ~40 days. */
-export function treeGrowth(g: Garden, now: number): number {
-  if (!g.plantedAt) return 0;
-  return Math.min(1, (now - g.plantedAt) / (TREE_GROW_DAYS * 86_400_000));
+/** Scale of the tree. A sapling (0.4) grows to adulthood (1.0) in ~40 days,
+ *  then slowly, over a year, becomes ancient (~2.1) — crown at the window's top. */
+export function treeScale(g: Garden, now: number): number {
+  if (!g.plantedAt) return 0.4;
+  const days = (now - g.plantedAt) / 86_400_000;
+  const adult = 0.4 + 0.6 * Math.min(1, days / 40);
+  const ancient = days > 40 ? 1.1 * Math.min(1, (days - 40) / 325) : 0;
+  return adult + ancient;
 }
 
 export const RAKE_FADE_DAYS = 10;

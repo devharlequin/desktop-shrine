@@ -10,10 +10,10 @@ export const SPOTS = {
   plate: new THREE.Vector3(0, -92, 27),
   sanctum: new THREE.Vector3(0, -18, 9),          // into the dark, for delivering offerings
   sleepSpot: new THREE.Vector3(32, -46, 17),      // curled beside the altar, in candle glow
-  // the stair route: z steps down gradually so he climbs IN FRONT of the shrine
-  // and only passes behind at the doorway itself
-  climb1: new THREE.Vector3(0, -80, 24),
-  climb2: new THREE.Vector3(0, -62, 19),
+  // the stair route: z stays ABOVE the steps quad (z=20) the whole way up the
+  // stairs, then ducks behind the altar (z=16) only at the platform
+  climb1: new THREE.Vector3(0, -80, 24.5),
+  climb2: new THREE.Vector3(0, -58, 21.5),
   climb3: new THREE.Vector3(0, -40, 14),
   candleL: new THREE.Vector3(-62, -55, 24),
   candleR: new THREE.Vector3(60, -55, 24),

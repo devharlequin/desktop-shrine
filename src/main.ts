@@ -16,7 +16,7 @@ import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
-  tickWeathering, treeGrowth, type Garden, type RakeStroke, type ResponseId,
+  tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
 import { mew } from './render/sounds';
 import { makeBridge } from './bridge';
@@ -125,13 +125,13 @@ async function boot() {
   );
   scene.add(tree);
   const growTree = () => {
-    const k = 0.4 + 0.6 * treeGrowth(garden, Date.now());
+    const k = treeScale(garden, Date.now());
     tree.scale.set(k, k, 1);
     tree.position.set(TREE.x, TREE.baseY + (TREE.h * k) / 2, 20); // anchored at its roots
     return k;
   };
-  let treeScale = growTree();
-  setInterval(() => { treeScale = growTree(); }, 3600_000); // it grows while you sleep
+  let treeK = growTree();
+  setInterval(() => { treeK = growTree(); }, 3600_000); // it grows while you sleep
 
   // --- the tended ground ---
   const sand = new SandPatch();
@@ -275,7 +275,7 @@ async function boot() {
     if (s === 'winter' || garden.leaves.length > 40) return;
     const n = Math.floor(Math.random() * (s === 'autumn' ? 5 : 3)); // 0-4 autumn, 0-2 else
     for (let i = 0; i < n; i++) {
-      setTimeout(() => falling.release(performance.now() / 1000, treeScale), Math.random() * 20_000);
+      setTimeout(() => falling.release(performance.now() / 1000, treeK), Math.random() * 20_000);
     }
   };
   spawnSeasonalLeaves();
