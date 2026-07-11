@@ -3,6 +3,7 @@ import {
   emptyGarden, recordOffering, activeResponses, addRakeStroke, spawnLeaf,
   sweepLeavesNear, tickWeathering, strokeStrength, serializeGarden, parseGarden,
   treeScale,
+  treeMature,
 } from './garden';
 
 const T0 = Date.parse('2026-07-10T12:00:00');
@@ -35,15 +36,17 @@ describe('garden', () => {
     expect(g.leaves[0].x).toBe(300);
   });
 
-  it('tree grows: sapling -> adult at 40 days -> ancient over a year', () => {
+  it('tree grows: sapling -> full ancient size at one month, then the seasons have it', () => {
     const g = { ...emptyGarden(), plantedAt: T0 };
     const DAY = 86_400_000;
     expect(treeScale(g, T0)).toBeCloseTo(0.4, 2);
-    expect(treeScale(g, T0 + 20 * DAY)).toBeCloseTo(0.7, 2);
-    expect(treeScale(g, T0 + 40 * DAY)).toBeCloseTo(1.0, 2);
-    expect(treeScale(g, T0 + 365 * DAY)).toBeCloseTo(2.1, 2);
-    expect(treeScale(g, T0 + 3650 * DAY)).toBeCloseTo(2.1, 2); // it stops, eventually
+    expect(treeScale(g, T0 + 15 * DAY)).toBeCloseTo(1.25, 2);
+    expect(treeScale(g, T0 + 30 * DAY)).toBeCloseTo(2.1, 2);
+    expect(treeScale(g, T0 + 3650 * DAY)).toBeCloseTo(2.1, 2); // it stops, at its full height
     expect(treeScale(emptyGarden(), T0)).toBeCloseTo(0.4, 2);  // unplanted = sapling
+    expect(treeMature(g, T0 + 29 * DAY)).toBe(false);
+    expect(treeMature(g, T0 + 30 * DAY)).toBe(true);
+    expect(treeMature(emptyGarden(), T0)).toBe(false);
   });
 
   it('serializes and parses, tolerating garbage', () => {

@@ -16,7 +16,7 @@ import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
-  tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
+  tickWeathering, treeMature, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
 import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
@@ -273,10 +273,16 @@ async function boot() {
     new THREE.MeshLambertMaterial({ map: loadTex('tree'), transparent: true, alphaTest: 0.01 }),
   );
   scene.add(tree);
+  // once full-grown, the tree answers the seasons (multiplies the art's own
+  // greens — summer IS the art; the others tint it)
+  const SEASON_TINT = { spring: 0xd8f2c4, summer: 0xffffff, autumn: 0xffa055, winter: 0xd8d2e4 } as const;
   const growTree = () => {
     const k = treeScale(garden, Date.now());
     tree.scale.set(k, k, 1);
     tree.position.set(TREE.x, TREE.baseY + (TREE.h * k) / 2, 20); // anchored at its roots
+    (tree.material as THREE.MeshLambertMaterial).color.setHex(
+      treeMature(garden, Date.now()) ? SEASON_TINT[season(now())] : 0xffffff,
+    );
     return k;
   };
   let treeK = growTree();
@@ -477,6 +483,7 @@ async function boot() {
 
   // --- the loop ---
   let last = performance.now();
+  let treeSway = 0; // eases in and out so the wind toggle never snaps the trunk
   function loop() {
     const nowMs = performance.now();
     const dt = Math.min(0.1, (nowMs - last) / 1000);
@@ -516,6 +523,13 @@ async function boot() {
       );
       (firefly.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.45 * Math.sin(t * 2.2);
     }
+
+    // the tree leans with the wind — rotated about its center, then shifted so
+    // the roots stay planted (small-angle pivot at the base)
+    treeSway += ((ambientPlaying('wind') ? 1 : 0) - treeSway) * Math.min(1, dt * 1.2);
+    const lean = treeSway * (wind * 0.026 + Math.sin(t * 2.7) * 0.007);
+    tree.rotation.z = lean;
+    tree.position.x = TREE.x - Math.sin(lean) * (TREE.h * treeK) / 2;
 
     sky.update(d, t);
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
