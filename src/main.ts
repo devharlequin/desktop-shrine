@@ -453,7 +453,7 @@ async function boot() {
     sky.update(d, t);
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
-    critters.update(t, dt, timeOfDay(d) === 'night');
+    critters.update(t, dt, timeOfDay(d) === 'night' || ambientPlaying('rain')); // the cat won't sit out in the rain
     falling.update(dt, t);
     clouds.update(dt, t, ambientPlaying('rain'));
     rainFx.update(dt, t, ambientPlaying('rain'));

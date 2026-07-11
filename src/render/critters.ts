@@ -87,7 +87,8 @@ export class Critters {
     });
   }
 
-  update(t: number, dt: number, night = false) {
+  /** `shelter`: the cat belongs at the keeper's bedside — night, or rain drumming on the roof. */
+  update(t: number, dt: number, shelter = false) {
     for (const h of [...this.floating]) {
       const age = t - h.born;
       h.m.position.y += 6 * dt;
@@ -114,12 +115,14 @@ export class Critters {
           c.item.rotation.z = 0;
         }
       }
-      // the cat's bedtime: at night it climbs to the keeper's bedside; at dawn it comes home
-      if (c.kind === 'cat' && c.mode === 'idle' && t >= c.nextAt) {
-        if (night && !c.cuddling) {
+      // the cat's refuge: at night — or when rain is falling — it climbs to the
+      // keeper's bedside under the roof; when the sky and the hour both clear, it comes home
+      if (c.kind === 'cat' && c.mode === 'idle') {
+        if (shelter && !c.cuddling) {
+          // no waiting out the lounge timer — a cat does not sit in the rain
           c.mode = 'trek';
           c.waypoints = [...BEDSIDE_ROUTE];
-        } else if (!night && c.cuddling) {
+        } else if (!shelter && c.cuddling && t >= c.nextAt) {
           c.mode = 'trek';
           c.waypoints = [...BEDSIDE_ROUTE].reverse().slice(1).concat([c.home.clone()]);
           c.cuddling = false;
@@ -128,8 +131,15 @@ export class Critters {
       if (c.mode === 'trek') {
         const wp = c.waypoints[0];
         if (!wp) {
-          if (night) { c.mode = 'cuddle'; c.cuddling = true; this.spawnHeart(c.mesh.position, t); }
-          else { c.mode = 'idle'; c.nextAt = t + 10 + Math.random() * 20; }
+          // the weather may have turned mid-walk; decide by where the trek ended,
+          // never by teleporting (the walk mode snaps y to home — stairs forbid that)
+          const atBed = c.mesh.position.distanceTo(BEDSIDE_ROUTE[BEDSIDE_ROUTE.length - 1]) < 2;
+          if (shelter && atBed) { c.mode = 'cuddle'; c.cuddling = true; this.spawnHeart(c.mesh.position, t); }
+          else if (shelter) { c.waypoints = [...BEDSIDE_ROUTE]; } // turned around at the door: back up to the bed
+          else if (atBed) { // arrived just as the rain passed: straight home again
+            c.waypoints = [...BEDSIDE_ROUTE].reverse().slice(1).concat([c.home.clone()]);
+            c.cuddling = false;
+          } else { c.mode = 'idle'; c.nextAt = t + 10 + Math.random() * 20; }
           continue;
         }
         const d = wp.clone().sub(c.mesh.position);
@@ -147,14 +157,14 @@ export class Critters {
         continue;
       }
       if (c.mode === 'cuddle') {
-        if (!night) { c.nextAt = t; c.mode = 'idle'; continue; } // dawn: idle will start the trek home
+        if (!shelter) { c.nextAt = t; c.mode = 'idle'; continue; } // clear skies at last: idle will start the trek home
         c.mesh.scale.y = 1 - 0.04 * Math.abs(Math.sin(t * 1.1)); // slow sleepy breathing
         continue;
       }
       if (c.mode === 'idle') {
         if (t < c.nextAt) continue;
         if (c.kind === 'cat') {
-          if (night) continue; // handled above
+          if (shelter) continue; // handled above
           c.mode = 'walk';
           c.targetX = c.home.x + (Math.random() * 2 - 1) * c.range;
         } else {
