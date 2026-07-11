@@ -67,45 +67,50 @@ function buildAmbient(a: AudioContext, kind: Ambient) {
   lfo.type = 'sine';
 
   if (kind === 'rain') {
-    // a soft dark bed underneath — distant rain, not static
+    // Rain is broadband, not tonal. Two layers, both filtered noise, no
+    // oscillators: a continuous "wash" (the sheet of falling water) plus a
+    // dense scatter of tiny noise grains (the spatter on stone and leaves).
+    // ---- the wash: steady noise shaped to a rain band, leaning on a slow LFO
     const hp = a.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = 300;
+    hp.frequency.value = 440;
     const lp = a.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 1400;
-    lfo.frequency.value = 0.11;
-    lfoGain.gain.value = 250; // the rain leans a little, now and then
+    lp.frequency.value = 3400;
+    lfo.frequency.value = 0.13;
+    lfoGain.gain.value = 500; // the sheet swells and eases, now and then
     lfo.connect(lfoGain).connect(lp.frequency);
-    const bed = a.createGain();
-    bed.gain.value = 0.55; // the bed sits under the patter
-    src.connect(hp).connect(lp).connect(bed).connect(gain).connect(a.destination);
+    const wash = a.createGain();
+    wash.gain.value = 0.42; // the wash sits under the patter
+    src.connect(hp).connect(lp).connect(wash).connect(gain).connect(a.destination);
     src.start();
     lfo.start();
-    // the patter itself: small plips scattered irregularly over the bed,
-    // each a tiny falling blip like a drop finding the eaves
+    // ---- the patter: short grains of band-passed noise, scattered densely.
+    // each is a spatter, not a pitched drop — that's what kept it from sounding
+    // like rain before (tuned sines read as bloops).
     let alive = true;
-    const drop = () => {
+    const grain = () => {
       if (!alive) return;
       try {
-        const o = a.createOscillator();
-        const g = a.createGain();
-        o.type = 'sine';
-        const f0 = 650 + Math.random() * 1900;
+        const g = noiseSource(a);                 // reuse the shared noise buffer
+        const bp = a.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 650 + Math.random() * 2900; // rain band, kept low so it patters not crackles
+        bp.Q.value = 0.6 + Math.random() * 1.1;
+        const env = a.createGain();
         const t0 = a.currentTime;
-        o.frequency.setValueAtTime(f0, t0);
-        o.frequency.exponentialRampToValueAtTime(f0 * 0.4, t0 + 0.045);
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.2 + Math.random() * 0.5, t0 + 0.004);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.045 + Math.random() * 0.07);
-        o.connect(g).connect(gain); // through the master, so mute/fades carry it
-        o.start(t0);
-        o.stop(t0 + 0.14);
+        const dur = 0.010 + Math.random() * 0.028;
+        env.gain.setValueAtTime(0.0001, t0);
+        env.gain.exponentialRampToValueAtTime(0.4 + Math.random() * 0.8, t0 + 0.0015);
+        env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        g.connect(bp).connect(env).connect(gain);  // through the master, so mute/fades carry it
+        g.start(t0, Math.random() * 1.8);           // random slice, so grains don't repeat
+        g.stop(t0 + dur + 0.02);
       } catch { /* one drop missed */ }
-      setTimeout(drop, 35 + Math.random() * 170);
+      setTimeout(grain, 14 + Math.random() * 46);   // dense and irregular
     };
-    setTimeout(drop, 300);
-    return { gain, vol: 0.055, stop: () => { alive = false; src.stop(); lfo.stop(); } };
+    setTimeout(grain, 200);
+    return { gain, vol: 0.06, stop: () => { alive = false; src.stop(); lfo.stop(); } };
   }
 
   // wind: low rounded noise with slow gusts wandering the filter
