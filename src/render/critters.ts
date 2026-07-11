@@ -21,10 +21,12 @@ interface Critter {
   cuddling: boolean;     // reached the keeper's bedside tonight
 }
 
-/** The cat's route up to the keeper's bedside (and back down at dawn). */
+/** The cat's route up to the keeper's bedside (and back down at dawn).
+ *  Same rule as the keeper's climb: stay in front of the steps quad (z=20)
+ *  until past its top edge (y=-52), only then step down in depth. */
 const BEDSIDE_ROUTE = [
   new THREE.Vector3(-5, -88, 24.6),
-  new THREE.Vector3(25, -60, 21.6),
+  new THREE.Vector3(32, -50, 21.6),
   new THREE.Vector3(47, -49, 17.2),
 ];
 
