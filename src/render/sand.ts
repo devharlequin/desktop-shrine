@@ -19,7 +19,6 @@ export class SandPatch {
     this.cv.height = SAND_RECT.h;
     this.tex = new THREE.CanvasTexture(this.cv);
     this.tex.magFilter = this.tex.minFilter = THREE.NearestFilter;
-    this.tex.colorSpace = THREE.SRGBColorSpace;
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(SAND_RECT.w, SAND_RECT.h),
       new THREE.MeshLambertMaterial({ map: this.tex, transparent: true }),

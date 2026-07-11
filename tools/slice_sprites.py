@@ -85,6 +85,31 @@ def slice_all():
                     p = px[i, j]
                     if abs(p[0] - key[0]) + abs(p[1] - key[1]) + abs(p[2] - key[2]) < tol:
                         px[i, j] = (0, 0, 0, 0)
+        if r.get("eraseSpecks"):
+            # scrub bright warm specks (baked-in bugs/fireflies) so they can be
+            # animated as live sprites instead; skip rects protect real flames
+            skips = r["eraseSpecks"].get("skip", [])
+            x0, y0 = r["rect"][0], r["rect"][1]
+            px = tile.load()
+            for j in range(tile.height):
+                for i in range(tile.width):
+                    p = px[i, j]
+                    if p[3] > 0 and p[0] > 190 and p[1] > 110 and p[2] < 130:
+                        sx, sy = x0 + i, y0 + j
+                        if any(rx <= sx < rx + rw and ry <= sy < ry + rh for rx, ry, rw, rh in skips):
+                            continue
+                        px[i, j] = px[max(0, i - 4), min(tile.height - 1, j + 3)]
+        if r.get("movePixelBlock"):
+            # relocate a small block (e.g. misplaced moss): fill source area with the
+            # color just left of it, stamp the block at its new home
+            fx, fy, fw, fh = r["movePixelBlock"]["from"]
+            tx, ty = r["movePixelBlock"]["to"]
+            block = tile.crop((fx, fy, fx + fw, fy + fh))
+            fill = tile.getpixel((fx - 2, fy + fh // 2))
+            for j in range(fh):
+                for i in range(fw):
+                    tile.putpixel((fx + i, fy + j), fill)
+            tile.paste(block, (tx, ty))
         tile.save(OUT / f"{name}.png")
         manifest[name] = {"rect": r["rect"], "z": r["z"]}
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))

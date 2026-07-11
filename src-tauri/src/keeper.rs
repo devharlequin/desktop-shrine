@@ -39,8 +39,15 @@ pub async fn summon_keeper(
 
     let out = tauri::async_runtime::spawn_blocking(move || {
         // claude is claude.cmd on Windows; go through cmd so PATH resolution works
-        Command::new("cmd")
-            .args([
+        let mut cmd = Command::new("cmd");
+        // strip session env a parent Claude Code instance would leak into the child
+        for (k, _) in std::env::vars() {
+            let ku = k.to_uppercase();
+            if ku.starts_with("ANTHROPIC_") || ku.starts_with("CLAUDE") {
+                cmd.env_remove(&k);
+            }
+        }
+        cmd.args([
                 "/C",
                 "claude",
                 "-p",
@@ -53,8 +60,8 @@ pub async fn summon_keeper(
                 &ledger_dir,
                 "--add-dir",
                 &offering_dir,
-            ])
-            .output()
+            ]);
+        cmd.output()
     })
     .await
     .map_err(|e| e.to_string())?

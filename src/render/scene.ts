@@ -11,10 +11,25 @@ export async function loadManifest(): Promise<Manifest> {
   return (await fetch('./sprites/manifest.json')).json();
 }
 
+const texCache = new Map<string, THREE.Texture>();
+
+/** Await every sprite before any quad exists — materials are born complete.
+ *  (Textures arriving after material creation proved unreliable on fresh loads.) */
+export async function preloadTextures(names: string[]): Promise<void> {
+  const loader = new THREE.TextureLoader();
+  await Promise.all(names.map(async n => {
+    const t = await loader.loadAsync(`./sprites/${n}.png`);
+    t.magFilter = t.minFilter = THREE.NearestFilter;
+    texCache.set(n, t);
+  }));
+}
+
 export function loadTex(name: string): THREE.Texture {
+  const cached = texCache.get(name);
+  if (cached) return cached;
   const t = new THREE.TextureLoader().load(`./sprites/${name}.png`);
   t.magFilter = t.minFilter = THREE.NearestFilter;
-  t.colorSpace = THREE.SRGBColorSpace;
+  texCache.set(name, t);
   return t;
 }
 
@@ -58,6 +73,7 @@ export async function buildShrineScene(): Promise<ShrineScene> {
   const scene = new THREE.Scene();
   const camera = makeCamera();
   const manifest = await loadManifest();
+  await preloadTextures([...Object.keys(manifest).filter(n => n !== 'sky' && n !== 'stars'), 'clauding']);
   const layers = new Map<string, THREE.Mesh>();
   for (const [name, e] of Object.entries(manifest)) {
     if (name === 'sky' || name === 'stars') continue; // sky is generated, not sliced

@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 
+// Flat pixel art: what you author is what you get. Disabling color management
+// kills the whole class of sRGB double-transform bugs (textures decoded to
+// linear, then output re-encoded — or not — depending on material/pass).
+THREE.ColorManagement.enabled = false;
+
 export const VIRTUAL_W = 420;
 export const VIRTUAL_H = 260;
 
@@ -18,6 +23,7 @@ export class PixelRenderer {
       preserveDrawingBuffer: true, // reliable canvas readback (screenshots)
     });
     this.renderer.setPixelRatio(1);
+    this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.renderer.setSize(VIRTUAL_W, VIRTUAL_H, false); // keep drawing buffer virtual-size
     this.renderer.setClearColor(0x000000, 0);           // transparent where no sky
     this.resize();

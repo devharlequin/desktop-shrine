@@ -23,8 +23,7 @@ export class Sky {
       vertexShader:
         'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
       fragmentShader:
-        // pow(): re-encode to sRGB — raw ShaderMaterials bypass three's output color transform
-        'varying vec2 vUv; uniform vec3 top,bot; void main(){vec3 c=mix(bot,top,vUv.y);gl_FragColor=vec4(pow(c,vec3(0.4545)),1.);}',
+        'varying vec2 vUv; uniform vec3 top,bot; void main(){gl_FragColor=vec4(mix(bot,top,vUv.y),1.);}',
       depthWrite: false,
     });
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(VIRTUAL_W, VIRTUAL_H), this.mat);

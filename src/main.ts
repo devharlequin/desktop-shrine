@@ -6,6 +6,7 @@ import { Lights } from './render/lights';
 import { Incense } from './render/incense';
 import { Moths } from './render/moths';
 import { ClaudingView } from './render/claudingView';
+import { Critters } from './render/critters';
 import { SandPatch, LeafSprites, SAND_RECT } from './render/sand';
 import { CeremonyDirector } from './render/ceremony';
 import { ClaudingBrain } from './core/clauding';
@@ -64,6 +65,21 @@ async function boot() {
 
   const moths = new Moths([candleL, candleR]);
   scene.add(moths.group);
+
+  // lanterns glow on their own at dusk; warm little bugs are drawn to them
+  const lanternPos = ['lantern_l', 'lantern_r'].flatMap(n => {
+    const q = layers.get(n);
+    return q ? [q.position.clone().add(new THREE.Vector3(0, 10, 2))] : [];
+  });
+  lights.addLanterns(scene, lanternPos);
+  const lanternBugs = new Moths(lanternPos, 4, 0xf0c860, 6);
+  scene.add(lanternBugs.group);
+
+  // the garden's small residents
+  const critters = new Critters();
+  critters.add(layers.get('cat'), 'cat', 34);
+  critters.add(layers.get('mask_purple'), 'mask', 8);
+  critters.add(layers.get('mask_orange'), 'mask', 8);
 
   // --- the tended ground ---
   const sand = new SandPatch();
@@ -200,7 +216,30 @@ async function boot() {
   setInterval(spawnSeasonalLeaves, 3600_000);
 
   if (import.meta.env.DEV) {
-    Object.assign(window as any, { __scene: scene, __layers: layers, __camera: camera, __px: px, __ceremony: ceremony, __garden: () => garden });
+    Object.assign(window as any, {
+      __scene: scene, __layers: layers, __camera: camera, __px: px,
+      __ceremony: ceremony, __garden: () => garden,
+      __setHour: (h: number | null) => { DEV_HOUR = h; },
+    });
+    // poll the dev server for remote-control commands (drives verification in tauri dev)
+    setInterval(async () => {
+      try {
+        const cmds: string[] = await (await fetch('/__cmd')).json();
+        for (const c of cmds) {
+          if (c === 'shot') {
+            const d = document.createElement('canvas');
+            d.width = canvas.width; d.height = canvas.height;
+            d.getContext('2d')!.drawImage(canvas, 0, 0);
+            await fetch('/__shot', { method: 'POST', body: d.toDataURL('image/png') });
+          } else if (c.startsWith('drop:')) {
+            const p = c.slice(5);
+            ceremony.drop({ name: p.split(/[\\/]/).pop()!, path: p });
+          } else if (c.startsWith('hour:')) {
+            DEV_HOUR = c.slice(5) === 'null' ? null : Number(c.slice(5));
+          }
+        }
+      } catch { /* dev server gone */ }
+    }, 1500);
   }
 
   // --- the loop ---
@@ -244,6 +283,8 @@ async function boot() {
 
     sky.update(d, t);
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
+    lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
+    critters.update(t, dt);
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);

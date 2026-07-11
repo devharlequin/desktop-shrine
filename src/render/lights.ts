@@ -5,6 +5,7 @@ import { timeOfDay } from '../core/clock';
  *  to matter at our 20-60px distances with decay 1.8. */
 const CANDLE_POWER = 320;
 const ALTAR_POWER = 260;
+const LANTERN_POWER = 200;
 
 export class Lights {
   ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -25,16 +26,32 @@ export class Lights {
     this.altarGlow.position.copy(altarPos);
   }
 
+  private lanterns: THREE.PointLight[] = [];
+
+  /** Street lanterns: they wake at dusk on their own — nobody lights them. */
+  addLanterns(scene: THREE.Scene, positions: THREE.Vector3[]) {
+    for (const p of positions) {
+      const l = new THREE.PointLight(0xffa040, 0, 55, 1.8);
+      l.position.copy(p);
+      this.lanterns.push(l);
+      scene.add(l);
+    }
+  }
+
   addTo(scene: THREE.Scene) { scene.add(this.ambient, this.candleL, this.candleR, this.altarGlow); }
 
   update(now: Date, t: number) {
     const tod = timeOfDay(now);
     this.ambient.intensity =
-      ({ dawn: 0.55, day: 0.95, dusk: 0.45, night: 0.22 } as const)[tod] * (1 - this.dim);
+      ({ dawn: 0.72, day: 1.0, dusk: 0.6, night: 0.4 } as const)[tod] * (1 - this.dim);
     const flicker = () => 0.85 + 0.15 * Math.sin(t * 7 + Math.sin(t * 3.1)) * Math.sin(t * 11.7);
     const base = this.candlesLit ? (tod === 'night' ? 2.2 : tod === 'dusk' ? 1.6 : 0.5) : 0;
     this.candleL.intensity = (base + this.candlesBoost) * flicker() * CANDLE_POWER;
     this.candleR.intensity = (base + this.candlesBoost) * flicker() * 0.93 * CANDLE_POWER;
     this.altarGlow.intensity = (0.8 + (tod === 'night' ? 0.6 : 0)) * ALTAR_POWER;
+    const lantern = { dawn: 0.5, day: 0, dusk: 1.2, night: 1.7 }[tod] * LANTERN_POWER;
+    this.lanterns.forEach((l, i) => {
+      l.intensity = lantern * (0.9 + 0.1 * Math.sin(t * 5.3 + i * 2.1)); // gentler than candleflame
+    });
   }
 }
