@@ -19,7 +19,7 @@ import {
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
 import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
-import { RainFx, WindWisps } from './render/weatherFx';
+import { Clouds, RainFx, WindWisps } from './render/weatherFx';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -213,6 +213,8 @@ async function boot() {
   scene.add(falling.group);
 
   // the visible weather, following the ambient murmurs
+  const clouds = new Clouds();
+  scene.add(clouds.group);
   const rainFx = new RainFx();
   scene.add(rainFx.group);
   const windWisps = new WindWisps();
@@ -438,6 +440,7 @@ async function boot() {
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
     critters.update(t, dt, timeOfDay(d) === 'night');
     falling.update(dt, t);
+    clouds.update(dt, t, ambientPlaying('rain'));
     rainFx.update(dt, t, ambientPlaying('rain'));
     windWisps.update(dt, t, ambientPlaying('wind'));
 

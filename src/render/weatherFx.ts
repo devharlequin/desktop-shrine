@@ -1,9 +1,56 @@
 import * as THREE from 'three';
 import { VIRTUAL_W, VIRTUAL_H } from './renderer';
 import { windAt } from './wind';
+import { loadTex } from './scene';
 
-/** The weather you asked for: rain streaks and wind wisps that appear when
- *  their murmur is playing, and fade politely when it stops. */
+/** The weather you asked for: rain clouds, rain streaks and wind wisps that
+ *  appear when their murmur is playing, and fade politely when it stops. */
+
+/** Low grey-lavender rain clouds that roll in high across the sky with the
+ *  rain, riding the wind, and drift off when it stops. */
+export class Clouds {
+  group = new THREE.Group();
+  private cl: { m: THREE.Mesh; vx: number; vy: number; speed: number; w: number }[] = [];
+  private fade = 0;
+
+  constructor() {
+    // a few clouds of varied size, strung across the top band of sky
+    const defs = [
+      { tex: 'cloud2', w: 50, h: 18 },
+      { tex: 'cloud1', w: 34, h: 15 },
+      { tex: 'cloud3', w: 40, h: 16 },
+      { tex: 'cloud1', w: 30, h: 13 },
+    ];
+    defs.forEach((d, i) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(d.w, d.h),
+        new THREE.MeshBasicMaterial({ map: loadTex(d.tex), transparent: true, opacity: 0, depthWrite: false }),
+      );
+      this.group.add(m);
+      this.cl.push({
+        m,
+        vx: (i / defs.length) * VIRTUAL_W + Math.random() * 36,
+        vy: 18 + i * 11 + Math.random() * 6, // the high band of sky, above the roof
+        speed: 4 + Math.random() * 4,
+        w: d.w,
+      });
+    });
+    this.group.visible = false;
+  }
+
+  update(dt: number, t: number, on: boolean) {
+    this.fade = Math.max(0, Math.min(1, this.fade + (on ? dt / 2.5 : -dt / 2)));
+    this.group.visible = this.fade > 0.001;
+    if (!this.group.visible) return;
+    const drift = 3 + Math.max(0, windAt(t)) * 5; // clouds ride the wind, slowly
+    for (const c of this.cl) {
+      c.vx += (c.speed * 0.4 + drift) * dt;
+      if (c.vx - c.w / 2 > VIRTUAL_W) c.vx = -c.w / 2 - Math.random() * 30; // wrap back off the left
+      c.m.position.set(c.vx - VIRTUAL_W / 2, VIRTUAL_H / 2 - c.vy, 28); // behind the rain streaks (z=32)
+      (c.m.material as THREE.MeshBasicMaterial).opacity = this.fade * 0.88;
+    }
+  }
+}
 
 /** Thin falling streaks across the whole diorama, leaning with the wind. */
 export class RainFx {
