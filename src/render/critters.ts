@@ -14,6 +14,8 @@ interface Critter {
   nextAt: number;        // t when the next action may begin
   hopStart: number;
   facing: number;        // 1 | -1
+  /** something precious carried overhead; set down while resting */
+  item?: THREE.Mesh;
 }
 
 /** The garden's small residents: the cat wanders and lounges, the masked
@@ -55,7 +57,7 @@ export class Critters {
     this.floating.push({ m, born: t });
   }
 
-  add(mesh: THREE.Mesh | undefined, kind: CritterKind, range: number) {
+  add(mesh: THREE.Mesh | undefined, kind: CritterKind, range: number, item?: THREE.Mesh) {
     if (!mesh) return;
     this.cs.push({
       mesh, kind, range,
@@ -66,6 +68,7 @@ export class Critters {
       hopStart: 0,
       facing: 1,
       slumpUntil: 0,
+      item,
     });
   }
 
@@ -80,6 +83,22 @@ export class Critters {
       }
     }
     for (const c of this.cs) {
+      // the carried treasure: overhead normally, set gently on the ground while resting
+      if (c.item) {
+        const p = c.mesh.position;
+        if (c.mode === 'slump') {
+          const k = Math.min(1, (t - c.hopStart) / 1.5);
+          c.item.position.set(
+            p.x + (11 + 3 * k) * c.facing,
+            p.y + (11 - 18 * k),          // lowered from overhead down to the ground
+            p.z + 1,
+          );
+          c.item.rotation.z = 0.15 * k;
+        } else {
+          c.item.position.set(p.x, p.y + 15.5, p.z + 1); // held high between his little arms
+          c.item.rotation.z = 0;
+        }
+      }
       if (c.mode === 'idle') {
         if (t < c.nextAt) continue;
         if (c.kind === 'cat') {

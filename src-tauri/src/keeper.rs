@@ -1,6 +1,13 @@
 use std::process::Command;
 
-use crate::shrine::ledger_path;
+use crate::shrine::{config_path, ledger_path};
+
+fn keeper_log(msg: &str) {
+    let p = config_path("keeper.log");
+    let line = format!("[{}] {}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), msg);
+    let prev = std::fs::read_to_string(&p).unwrap_or_default();
+    let _ = std::fs::write(&p, prev + &line);
+}
 
 const PROMPT: &str = include_str!("../../keeper/PROMPT.md");
 
@@ -62,6 +69,10 @@ pub async fn summon_keeper(
             "--add-dir",
             &offering_dir,
         ]);
+        // a GUI app's cwd is wherever it was launched from; give the keeper a stable home
+        if let Ok(home) = std::env::var("USERPROFILE") {
+            cmd.current_dir(home);
+        }
         cmd.stdin(std::process::Stdio::piped());
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
@@ -74,7 +85,14 @@ pub async fn summon_keeper(
     .map_err(|e| e.to_string())?;
 
     if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).to_string());
+        let err = format!(
+            "keeper exit {:?}: {} | {}",
+            out.status.code(),
+            String::from_utf8_lossy(&out.stderr).chars().take(300).collect::<String>(),
+            String::from_utf8_lossy(&out.stdout).chars().take(300).collect::<String>(),
+        );
+        keeper_log(&err);
+        return Err(err);
     }
     let text = String::from_utf8_lossy(&out.stdout);
     // the final line should be the JSON verdict; scan from the end
@@ -84,14 +102,17 @@ pub async fn summon_keeper(
             if let Ok(mut v) = serde_json::from_str::<KeeperVerdict>(l) {
                 v.responses.retain(|r| VOCAB.contains(&r.as_str()));
                 v.responses.truncate(2);
+                keeper_log(&format!("offering \"{}\" received: {:?}", offering_name, v.responses));
                 return Ok(v);
             }
         }
     }
-    Err(format!(
+    let err = format!(
         "keeper returned no verdict: {}",
         text.chars().take(400).collect::<String>()
-    ))
+    );
+    keeper_log(&err);
+    Err(err)
 }
 
 fn dir_of(p: &str) -> String {

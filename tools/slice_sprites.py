@@ -93,14 +93,24 @@ def slice_all():
             skips = r["eraseSpecks"].get("skip", [])
             x0, y0 = r["rect"][0], r["rect"][1]
             px = tile.load()
-            for j in range(tile.height):
-                for i in range(tile.width):
-                    p = px[i, j]
-                    if p[3] > 0 and p[0] > 190 and p[1] > 110 and p[2] < 130:
-                        sx, sy = x0 + i, y0 + j
-                        if any(rx <= sx < rx + rw and ry <= sy < ry + rh for rx, ry, rw, rh in skips):
-                            continue
-                        px[i, j] = px[max(0, i - 4), min(tile.height - 1, j + 3)]
+            total = 0
+            # multi-pass: fill samples can land inside a large blob, so erode until stable
+            for _pass in range(10):
+                erased = 0
+                for j in range(tile.height):
+                    for i in range(tile.width):
+                        p = px[i, j]
+                        # warm bright specks: orange bugs AND pale-gold bugs
+                        if p[3] > 0 and p[0] > 190 and p[1] > 110 and p[0] > p[2] + 60:
+                            sx, sy = x0 + i, y0 + j
+                            if any(rx <= sx < rx + rw and ry <= sy < ry + rh for rx, ry, rw, rh in skips):
+                                continue
+                            px[i, j] = px[max(0, i - 6), min(tile.height - 1, j + 5)]
+                            erased += 1
+                total += erased
+                if erased == 0:
+                    break
+            print(f"  eraseSpecks({name}): erased {total} px")
         if r.get("movePixelBlock"):
             # relocate a small block (e.g. misplaced moss): fill source area with the
             # color just left of it, stamp the block at its new home
@@ -116,6 +126,9 @@ def slice_all():
         manifest[name] = {"rect": r["rect"], "z": r["z"]}
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1))
     print(f"sliced {len(manifest)} layers -> {OUT}")
+    # post-step: re-extract the orange spirit's bundle (slicing regenerates his sprite)
+    import subprocess
+    subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / "extract_bow.py")], check=True)
 
 
 if __name__ == "__main__":

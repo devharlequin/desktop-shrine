@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PixelRenderer, VIRTUAL_W, VIRTUAL_H } from './render/renderer';
-import { buildShrineScene, loadTex } from './render/scene';
+import { buildShrineScene, loadTex, S } from './render/scene';
 import { Sky } from './render/sky';
 import { Lights } from './render/lights';
 import { Incense } from './render/incense';
@@ -16,8 +16,9 @@ import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
-  tickWeathering, type Garden, type RakeStroke, type ResponseId,
+  tickWeathering, treeGrowth, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
+import { mew } from './render/sounds';
 import { makeBridge } from './bridge';
 
 // --- dev-only clock override: keys 1..4 = dawn/day/dusk/night, 0 = real time ---
@@ -70,6 +71,7 @@ async function boot() {
       l.y >= TREE.ground.y0 ||
       (l.x >= TREE.steps.x0 && l.x <= TREE.steps.x1 && l.y >= TREE.steps.y0)),
   };
+  if (!garden.plantedAt) garden = { ...garden, plantedAt: Date.now() }; // the tree is planted
   const save = () => bridge.saveGarden(garden);
 
   // --- sky behind everything ---
@@ -105,18 +107,31 @@ async function boot() {
   scene.add(lanternBugs.group);
 
   // the garden's small residents (the purple one is the keeper now, not a critter)
+  // the orange one carries his treasure overhead — and sometimes sets it down to rest
+  const bundle = new THREE.Mesh(
+    new THREE.PlaneGeometry(34 * S, 18 * S),
+    new THREE.MeshLambertMaterial({ map: loadTex('bow'), transparent: true, alphaTest: 0.01 }),
+  );
+  scene.add(bundle);
   const critters = new Critters();
   critters.add(layers.get('cat'), 'cat', 34);
-  critters.add(layers.get('mask_orange'), 'mask', 8);
+  critters.add(layers.get('mask_orange'), 'mask', 8, bundle);
   scene.add(critters.hearts);
 
-  // --- the tree, keeper of leaves ---
+  // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
     new THREE.PlaneGeometry(TREE.w, TREE.h),
     new THREE.MeshLambertMaterial({ map: loadTex('tree'), transparent: true, alphaTest: 0.01 }),
   );
-  tree.position.set(TREE.x, TREE.baseY + TREE.h / 2, 20);
   scene.add(tree);
+  const growTree = () => {
+    const k = 0.4 + 0.6 * treeGrowth(garden, Date.now());
+    tree.scale.set(k, k, 1);
+    tree.position.set(TREE.x, TREE.baseY + (TREE.h * k) / 2, 20); // anchored at its roots
+    return k;
+  };
+  let treeScale = growTree();
+  setInterval(() => { treeScale = growTree(); }, 3600_000); // it grows while you sleep
 
   // --- the tended ground ---
   const sand = new SandPatch();
@@ -206,7 +221,7 @@ async function boot() {
   let liveStroke: RakeStroke | null = null;
   canvas.addEventListener('pointerdown', e => {
     const p = toVirtual(e);
-    if (critters.petAt(toScene(p), performance.now() / 1000)) return; // pet > chores
+    if (critters.petAt(toScene(p), performance.now() / 1000)) { mew(); return; } // pet > chores
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
     if (g === 'rake') liveStroke = { points: [p], t: Date.now() };
     if (g === 'sweep') {
@@ -256,7 +271,7 @@ async function boot() {
     if (s === 'winter' || garden.leaves.length > 40) return;
     const n = Math.floor(Math.random() * (s === 'autumn' ? 5 : 3)); // 0-4 autumn, 0-2 else
     for (let i = 0; i < n; i++) {
-      setTimeout(() => falling.release(performance.now() / 1000), Math.random() * 20_000);
+      setTimeout(() => falling.release(performance.now() / 1000, treeScale), Math.random() * 20_000);
     }
   };
   spawnSeasonalLeaves();

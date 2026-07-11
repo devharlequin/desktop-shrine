@@ -14,6 +14,16 @@ export interface Garden {
   responses: ActiveResponse[];
   rakeStrokes: RakeStroke[];
   leaves: Leaf[];
+  /** when the tree was planted (first launch); it grows over the weeks */
+  plantedAt?: number;
+}
+
+const TREE_GROW_DAYS = 40;
+
+/** 0..1 — how grown the tree is. Starts a sapling, full canopy after ~40 days. */
+export function treeGrowth(g: Garden, now: number): number {
+  if (!g.plantedAt) return 0;
+  return Math.min(1, (now - g.plantedAt) / (TREE_GROW_DAYS * 86_400_000));
 }
 
 export const RAKE_FADE_DAYS = 10;

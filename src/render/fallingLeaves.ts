@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { VIRTUAL_W, VIRTUAL_H } from './renderer';
 
-/** The tree's canopy and where its leaves may come to rest — VIRTUAL px. */
+/** The tree and where its leaves may come to rest. */
 export const TREE = {
-  x: -178, baseY: -92, w: 64, h: 104,             // scene coords of the tree mesh
-  canopy: { x0: 20, x1: 165, y0: 15, y1: 45 },    // virtual px spawn box (canopy area)
-  ground: { y0: 228, y1: 250 },                   // where leaves land (open foreground)
+  x: -178, baseY: -92, w: 64, h: 104,             // scene coords of the tree mesh (full-grown)
+  ground: { y0: 228, y1: 250 },                   // where leaves land (virtual px, open foreground)
   steps: { x0: 120, x1: 300, y0: 192, y1: 214 },  // sometimes on the steps
 };
 
@@ -26,10 +25,13 @@ export class FallingLeaves {
   onLand: ((p: { x: number; y: number }) => void) | null = null;
   private falling: Falling[] = [];
 
-  release(now: number) {
-    const c = TREE.canopy;
-    const vx = c.x0 + Math.random() * (c.x1 - c.x0);
-    const vy = c.y0 + Math.random() * (c.y1 - c.y0);
+  release(now: number, treeScale = 1) {
+    // canopy box in virtual coords, scaled about the tree's roots
+    const baseVX = TREE.x + VIRTUAL_W / 2;
+    const baseVY = VIRTUAL_H / 2 - TREE.baseY;
+    const cx = baseVX + (Math.random() * 2 - 1) * 26 * treeScale;
+    const vy = baseVY - TREE.h * treeScale * (0.62 + Math.random() * 0.3);
+    const vx = cx;
     // wind drifts them rightward; some settle on the steps
     const onSteps = Math.random() < 0.3;
     const landY = onSteps
