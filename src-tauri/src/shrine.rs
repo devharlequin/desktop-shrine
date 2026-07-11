@@ -14,8 +14,9 @@ pub fn reliquary_dir() -> PathBuf {
     shrine_dir().join("reliquary")
 }
 
-/// Default ledger location (Claude's auto-memory dir);
-/// overridable via ~/.shrine/config.json {"ledgerPath": ...}
+/// Where the ledger lives. Default: ~/.shrine/ledger.md.
+/// Point it somewhere meaningful (e.g. your Claude memory directory) via
+/// ~/.shrine/config.json: {"ledgerPath": "C:\\...\\shrine-ledger.md"}
 pub fn ledger_path() -> PathBuf {
     let cfg = config_path("config.json");
     if let Ok(s) = fs::read_to_string(&cfg) {
@@ -25,13 +26,7 @@ pub fn ledger_path() -> PathBuf {
             }
         }
     }
-    let home = std::env::var("USERPROFILE").unwrap();
-    Path::new(&home)
-        .join(".claude")
-        .join("projects")
-        .join("C--Users-prais-Desktop-ai--claude")
-        .join("memory")
-        .join("shrine-ledger.md")
+    config_path("ledger.md")
 }
 
 /// Move the offered file into the reliquary. Never deletes; never copies-and-leaves.
