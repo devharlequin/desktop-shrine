@@ -18,7 +18,7 @@ import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew, isMuted, setMuted, startMusicBox } from './render/sounds';
+import { mew, isMuted, setMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients } from './render/sounds';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -70,6 +70,26 @@ async function boot() {
   muteBtn.onmouseleave = () => (muteBtn.style.opacity = '0.18');
   muteBtn.onclick = () => { setMuted(!isMuted()); muteGlyph(); };
   document.body.appendChild(muteBtn);
+
+  // ambient weather toggles — rain and wind for working beside the shrine.
+  // when on, they stay faintly lit so you can find them again.
+  const ambBtn = (kind: 'rain' | 'wind', glyph: string, right: number) => {
+    const b = document.createElement('div');
+    b.textContent = glyph;
+    const rest = () => (b.style.opacity = isAmbientOn(kind) ? '0.55' : '0.18');
+    b.style.cssText =
+      `position:fixed;top:6px;right:${right}px;font:14px monospace;color:#cfc8e0;` +
+      'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+      'transition:opacity 0.2s';
+    rest();
+    b.onmouseenter = () => (b.style.opacity = '0.9');
+    b.onmouseleave = rest;
+    b.onclick = () => { setAmbient(kind, !isAmbientOn(kind)); rest(); };
+    document.body.appendChild(b);
+  };
+  ambBtn('rain', '☂︎', 58);
+  ambBtn('wind', '≋', 82);
+  resumeAmbients();
 
   const px = new PixelRenderer(canvas);
   const bridge = await makeBridge();

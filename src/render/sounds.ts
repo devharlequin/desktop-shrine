@@ -12,6 +12,115 @@ export function isMuted() { return muted; }
 export function setMuted(m: boolean) {
   muted = m;
   try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* no storage */ }
+  for (const k of Object.keys(ambients) as Ambient[]) {
+    const amb = ambients[k];
+    if (amb) rampTo(amb.gain, m ? 0 : amb.vol, 1.2);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ambient murmurs: rain and wind, for working beside the shrine. Looping
+// filtered noise, a soft murmur — nothing that demands to be listened to.
+// ---------------------------------------------------------------------------
+
+type Ambient = 'rain' | 'wind';
+const AMB_KEY = (k: Ambient) => `shrine.ambient.${k}`;
+const ambients: Partial<Record<Ambient, { gain: GainNode; vol: number; stop: () => void }>> = {};
+
+let noiseBuf: AudioBuffer | null = null;
+function noiseSource(a: AudioContext) {
+  if (!noiseBuf) {
+    noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const src = a.createBufferSource();
+  src.buffer = noiseBuf;
+  src.loop = true;
+  return src;
+}
+
+function rampTo(g: GainNode, v: number, secs: number) {
+  const t = g.context.currentTime;
+  g.gain.cancelScheduledValues(t);
+  g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), t);
+  g.gain.exponentialRampToValueAtTime(Math.max(v, 0.0001), t + secs);
+}
+
+function buildAmbient(a: AudioContext, kind: Ambient) {
+  const src = noiseSource(a);
+  const gain = a.createGain();
+  gain.gain.value = 0.0001;
+  const lfo = a.createOscillator();
+  const lfoGain = a.createGain();
+  lfo.type = 'sine';
+
+  if (kind === 'rain') {
+    // steady patter: noise held between two filters, barely breathing
+    const hp = a.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 500;
+    const lp = a.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2600;
+    lfo.frequency.value = 0.11;
+    lfoGain.gain.value = 300; // the rain leans a little, now and then
+    lfo.connect(lfoGain).connect(lp.frequency);
+    src.connect(hp).connect(lp).connect(gain).connect(a.destination);
+    src.start();
+    lfo.start();
+    return { gain, vol: 0.05, stop: () => { src.stop(); lfo.stop(); } };
+  }
+
+  // wind: low rounded noise with slow gusts wandering the filter
+  const lp = a.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 420;
+  lp.Q.value = 1.1;
+  lfo.frequency.value = 0.06;
+  lfoGain.gain.value = 220;
+  lfo.connect(lfoGain).connect(lp.frequency);
+  src.connect(lp).connect(gain).connect(a.destination);
+  src.start();
+  lfo.start();
+  return { gain, vol: 0.09, stop: () => { src.stop(); lfo.stop(); } };
+}
+
+export function isAmbientOn(k: Ambient) {
+  try { return localStorage.getItem(AMB_KEY(k)) === '1'; } catch { return !!ambients[k]; }
+}
+
+export function setAmbient(k: Ambient, on: boolean) {
+  try { localStorage.setItem(AMB_KEY(k), on ? '1' : '0'); } catch { /* no storage */ }
+  try {
+    const a = ctx();
+    if (a.state === 'suspended') void a.resume();
+    if (on && !ambients[k]) {
+      const b = buildAmbient(a, k);
+      ambients[k] = b;
+      if (!muted) rampTo(b.gain, b.vol, 2.0);
+    } else if (!on && ambients[k]) {
+      const amb = ambients[k]!;
+      delete ambients[k];
+      rampTo(amb.gain, 0, 1.5);
+      setTimeout(() => { try { amb.stop(); } catch { /* already gone */ } }, 1600);
+    }
+  } catch { /* the weather stays outside */ }
+}
+
+/** Restore persisted ambient loops (call once at boot). */
+export function resumeAmbients() {
+  const wanted = (['rain', 'wind'] as Ambient[]).filter(isAmbientOn);
+  if (!wanted.length) return;
+  for (const k of wanted) setAmbient(k, true);
+  try {
+    // browsers hold the context until a gesture; the first touch wakes the weather
+    const a = ctx();
+    if (a.state === 'suspended') {
+      const kick = () => { void a.resume(); document.removeEventListener('pointerdown', kick); };
+      document.addEventListener('pointerdown', kick);
+    }
+  } catch { /* the weather waits */ }
 }
 
 /** A tiny mew for a petted cat — slightly different every time. */
