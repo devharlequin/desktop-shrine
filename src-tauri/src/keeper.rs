@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::shrine::{config_path, ledger_path};
+use crate::shrine::config_path;
 
 fn keeper_log(msg: &str) {
     let p = config_path("keeper.log");
@@ -13,8 +13,27 @@ const PROMPT: &str = include_str!("../../keeper/PROMPT.md");
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct KeeperVerdict {
+    pub description: String,
+    #[serde(default)]
+    pub words: Option<String>,
     pub responses: Vec<String>,
-    pub ledger_written: bool,
+}
+
+/// Mirror of the TS ledger format (src/core/ledger.ts).
+fn format_entry(date: &str, name: &str, v: &KeeperVerdict) -> String {
+    let words = match &v.words {
+        Some(w) if !w.trim().is_empty() => format!("> {}", w.trim()),
+        _ => "> The keeper left no words.".to_string(),
+    };
+    let resp = if v.responses.is_empty() {
+        "∴ (the shrine was still)".to_string()
+    } else {
+        format!("∴ {}", v.responses.join(", "))
+    };
+    format!(
+        "## {} — \"{}\"\n{} Kept in the reliquary.\n{}\n{}\n",
+        date, name, v.description, words, resp
+    )
 }
 
 const VOCAB: [&str; 6] = [
@@ -34,14 +53,10 @@ pub async fn summon_keeper(
     offering_name: String,
 ) -> Result<KeeperVerdict, String> {
     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let ledger = ledger_path().to_string_lossy().to_string();
     let prompt = PROMPT
         .replace("{OFFERING_PATH}", &offering_path)
-        .replace("{OFFERING_NAME}", &offering_name)
-        .replace("{LEDGER_PATH}", &ledger)
-        .replace("{DATE}", &date);
+        .replace("{OFFERING_NAME}", &offering_name);
 
-    let ledger_dir = dir_of(&ledger);
     let offering_dir = dir_of(&offering_path);
 
     let out = tauri::async_runtime::spawn_blocking(move || -> std::io::Result<std::process::Output> {
@@ -56,6 +71,7 @@ pub async fn summon_keeper(
                 cmd.env_remove(&k);
             }
         }
+        // read-only: the keeper contemplates and answers; the shrine inscribes
         cmd.args([
             "/C",
             "claude",
@@ -63,9 +79,7 @@ pub async fn summon_keeper(
             "--model",
             "sonnet",
             "--allowedTools",
-            "Read,Edit,Write",
-            "--add-dir",
-            &ledger_dir,
+            "Read",
             "--add-dir",
             &offering_dir,
         ]);
@@ -102,6 +116,12 @@ pub async fn summon_keeper(
             if let Ok(mut v) = serde_json::from_str::<KeeperVerdict>(l) {
                 v.responses.retain(|r| VOCAB.contains(&r.as_str()));
                 v.responses.truncate(2);
+                // the shrine inscribes the ledger on the keeper's behalf
+                let entry = format_entry(&date, &offering_name, &v);
+                crate::shrine::append_ledger(entry).map_err(|e| {
+                    keeper_log(&format!("ledger append failed: {}", e));
+                    e
+                })?;
                 keeper_log(&format!("offering \"{}\" received: {:?}", offering_name, v.responses));
                 return Ok(v);
             }

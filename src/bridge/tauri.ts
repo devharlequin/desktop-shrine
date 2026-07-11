@@ -4,7 +4,7 @@ import { formatLedgerEntry, localDate } from '../core/ledger';
 import type { OfferingMeta, TakeResult } from '../core/offering';
 import type { ShrineBridge } from './types';
 
-interface KeeperVerdict { responses: string[]; ledger_written: boolean }
+interface KeeperVerdict { description: string; words: string | null; responses: string[] }
 interface PendingItem { path: string; name: string }
 
 export class TauriBridge implements ShrineBridge {
