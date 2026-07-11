@@ -116,7 +116,8 @@ async function boot() {
       const vy = (e.clientY - canvas.getBoundingClientRect().top) / px.scale;
       if (vy < 140) getCurrentWindow().startDragging(); // grab the sky to move the window
     });
-    const pending = await (bridge as any).processPending?.() as string[] | undefined;
+    const { TauriBridge } = await import('./bridge/tauri');
+    const pending = bridge instanceof TauriBridge ? await bridge.processPending() : [];
     if (pending?.length) {
       garden = recordOffering(garden, Date.now(), pending as ResponseId[]);
       await save();
