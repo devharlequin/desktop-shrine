@@ -73,6 +73,27 @@ identically in both forms.
 - **Weather by date, no API:** occasional soft rain (clauding shelters and watches),
   fireflies on summer nights, snow in winter, falling leaves in autumn.
 
+## The Hours (real-time life)
+
+The scene clock is the real local clock, and each hour has its own inhabitants —
+small, occasional, never crowding the frame (at most one or two visible at a time):
+
+- **Dawn:** sparrows land on the shrine roof in ones and twos; one hops down the steps
+  ahead of the clauding's sweeping. Mist lies low over the ground and burns off.
+- **Day:** a butterfly wanders through (summer); a dragonfly hovers over the sand patch
+  and is gone; a bird perches on a lantern and watches the clauding work.
+- **Dusk:** swallows cut across the sky while the candles are being lit; the light goes
+  amber; the first moth arrives as the first candle catches.
+- **Night:** moths orbit the candle flames (light-seeking — they follow the actual point
+  lights); a cricket sits on a stone; in the deepest hours an owl silhouette lands on
+  the roof ridge, turns its head once, and leaves. Fireflies on warm summer nights.
+- **The clauding notices them.** Sometimes it stops sweeping to watch the bird, or holds
+  still so the butterfly can land on its broom. The creatures are indifferent to the
+  user but not to the shrine.
+
+All of it is date- and clock-driven, computed locally, no API. Creature sightings are
+sparse by design — seeing the owl should feel like something.
+
 ## The Clauding
 
 A resident with a daily routine, indifferent to being watched:
