@@ -10,7 +10,8 @@ export const SPOTS = {
   plate: new THREE.Vector3(0, -92, 27),
   doorway: new THREE.Vector3(-30, -38, 13),       // the little door left of the altar
   sanctum: new THREE.Vector3(-30, -30, 9),        // through the door, into the dark
-  sleepSpot: new THREE.Vector3(32, -46, 17),      // his bed beside the altar, in candle glow
+  sleepSpot: new THREE.Vector3(32, -46, 20.6),    // his bed beside the altar, in candle glow
+                                                  // (above the steps quad — the platform face is part of it)
   // the stair route: z stays ABOVE the steps quad (z=20) for the FULL height of
   // the staircase (steps top edge is y=-52), then crosses the platform to the door
   climb1: new THREE.Vector3(0, -80, 24.5),

@@ -27,7 +27,7 @@ interface Critter {
 const BEDSIDE_ROUTE = [
   new THREE.Vector3(-5, -88, 24.6),
   new THREE.Vector3(32, -50, 21.6),
-  new THREE.Vector3(47, -49, 17.2),
+  new THREE.Vector3(47, -49, 20.7), // stays above the steps quad — the platform face is part of it
 ];
 
 /** The garden's small residents: the cat wanders and lounges, the masked

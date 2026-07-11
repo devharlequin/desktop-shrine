@@ -57,6 +57,55 @@ export function bell() {
 
 const CHIME_NOTES = [1567.98, 1760.0, 2093.0, 2349.32, 2637.02]; // high pentatonic
 
+// ---------------------------------------------------------------------------
+// The music box: the shrine humming to itself. Not a soundtrack — a single
+// soft pluck every ten seconds or so, wandering a small pentatonic scale.
+// Written by the keeper of this codebase for his own shrine.
+// ---------------------------------------------------------------------------
+
+const SCALE = [392.0, 440.0, 523.25, 587.33, 698.46, 784.0]; // G A C D F G — koto-ish
+let musicOn = false;
+let degree = 2;
+
+function pluck(freq: number, vol: number, delay = 0) {
+  const a = ctx();
+  const o = a.createOscillator();
+  const g = a.createGain();
+  const f = a.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 2200;
+  o.type = 'triangle';
+  o.frequency.value = freq;
+  const t0 = a.currentTime + delay;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
+  o.connect(f).connect(g).connect(a.destination);
+  o.start(t0);
+  o.stop(t0 + 3.4);
+}
+
+function nextNote() {
+  if (!musicOn) return;
+  if (!muted) {
+    try {
+      // wander the scale like someone thinking, not performing
+      degree = Math.max(0, Math.min(SCALE.length - 1, degree + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));
+      pluck(SCALE[degree], 0.022 + Math.random() * 0.012);
+      if (Math.random() < 0.22) pluck(SCALE[degree] / 2, 0.014, 0.15); // a low root underneath, sometimes
+      if (Math.random() < 0.12 && degree > 0) pluck(SCALE[degree - 1], 0.016, 0.5); // a falling second, rarely
+    } catch { /* silence is also music */ }
+  }
+  setTimeout(nextNote, 8_000 + Math.random() * 14_000);
+}
+
+/** Begin the shrine's quiet self-humming. Safe to call once at boot. */
+export function startMusicBox() {
+  if (musicOn) return;
+  musicOn = true;
+  setTimeout(nextNote, 5_000 + Math.random() * 5_000);
+}
+
 /** A cluster of 2-4 soft glassy notes when the wind finds the chimes. */
 export function chimeTinkle(strength = 1) {
   if (muted) return;

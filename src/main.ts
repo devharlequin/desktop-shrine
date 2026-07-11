@@ -18,7 +18,7 @@ import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew, isMuted, setMuted } from './render/sounds';
+import { mew, isMuted, setMuted, startMusicBox } from './render/sounds';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -119,7 +119,7 @@ async function boot() {
     new THREE.PlaneGeometry(26, 10),
     new THREE.MeshLambertMaterial({ map: loadTex('bed'), transparent: true, alphaTest: 0.01 }),
   );
-  bed.position.set(33, -51, 16.8);
+  bed.position.set(33, -51, 20.5); // on the platform, in front of its stone face
   scene.add(bed);
 
   // wind chimes under the eaves
@@ -344,6 +344,8 @@ async function boot() {
       } catch { /* dev server gone */ }
     }, 1500);
   }
+
+  startMusicBox(); // the shrine hums to itself
 
   // --- the loop ---
   let last = performance.now();
