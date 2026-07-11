@@ -127,51 +127,62 @@ async function boot() {
   resumeAmbients();
 
   // the update glyph: dormant when the shrine is current, warmly lit when a
-  // newer shrine exists. Clicking it opens the releases page. Never speaks.
+  // newer shrine exists. Clicking it downloads, verifies, and installs the new
+  // shrine, then the shrine returns renewed. Never speaks; only glows and turns.
   if (isTauri) {
     const updBtn = document.createElement('div');
     updBtn.textContent = '⟳';
-    let updateFound = false;
+    let found = false;
+    let busy = false;
     const rest = () => {
-      updBtn.style.opacity = updateFound ? '0.7' : '0.18';
-      updBtn.style.color = updateFound ? '#e8b060' : '#cfc8e0';
+      if (busy) return;
+      updBtn.style.opacity = found ? '0.7' : '0.18';
+      updBtn.style.color = found ? '#e8b060' : '#cfc8e0';
     };
     updBtn.style.cssText =
       'position:fixed;top:6px;right:154px;font:14px monospace;color:#cfc8e0;' +
       'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
       'transition:opacity 0.4s,color 0.4s';
-    const newerThan = (a: string, b: string) => { // semver a > b
-      const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
-      for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
-      return false;
-    };
-    const checkUpdate = async () => {
+    const lookForUpdate = async () => {
       try {
-        const r = await fetch(
-          'https://api.github.com/repos/devharlequin/desktop-shrine/releases/latest',
-          { headers: { Accept: 'application/vnd.github+json' } },
-        );
-        if (!r.ok) return false;
-        const latest = (((await r.json()).tag_name as string) ?? '').replace(/^v/, '');
-        const { getVersion } = await import('@tauri-apps/api/app');
-        return !!latest && newerThan(latest, await getVersion());
-      } catch { return false; } // offline: the shrine doesn't mind
+        const { check } = await import('@tauri-apps/plugin-updater');
+        return await check();
+      } catch { return null; } // offline: the shrine doesn't mind
     };
-    updBtn.onmouseenter = () => (updBtn.style.opacity = '0.9');
+    updBtn.onmouseenter = () => { if (!busy) updBtn.style.opacity = '0.9'; };
     updBtn.onmouseleave = rest;
     updBtn.onclick = async () => {
-      updateFound = await checkUpdate();
-      if (updateFound) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('open_releases_page');
-      } else {
-        // a soft dip: "I looked; you already have the newest shrine"
-        updBtn.style.opacity = '0.05';
+      if (busy) return;
+      const update = await lookForUpdate();
+      if (!update) {
+        found = false;
+        updBtn.style.opacity = '0.05'; // a soft dip: "you already have the newest shrine"
         setTimeout(rest, 450);
+        return;
+      }
+      // the glyph slowly turns while the new shrine is carried in
+      busy = true;
+      updBtn.style.color = '#e8b060';
+      updBtn.style.opacity = '0.9';
+      let a = 0;
+      const spin = setInterval(() => { a += 30; updBtn.style.transform = `rotate(${a}deg)`; }, 250);
+      try {
+        await update.downloadAndInstall(); // signature-verified; installer takes it from here
+        const { relaunch } = await import('@tauri-apps/plugin-process');
+        await relaunch();
+      } catch {
+        // could not carry it in — at least show the way (browser fallback)
+        clearInterval(spin);
+        updBtn.style.transform = '';
+        busy = false;
+        found = true;
+        rest();
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('open_releases_page').catch(() => {});
       }
     };
     document.body.appendChild(updBtn);
-    void checkUpdate().then(f => { updateFound = f; rest(); }); // quiet look at boot
+    void lookForUpdate().then(u => { found = !!u; rest(); }); // quiet look at boot
   }
 
   const px = new PixelRenderer(canvas);

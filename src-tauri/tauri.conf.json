@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "shrine",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "dev.fable.shrine",
   "build": {
     "frontendDist": "../dist",
@@ -28,9 +28,19 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ4MUY2QkU4NjAyRUE5OTIKUldTU3FTNWc2R3NmU0hwc3JoS3M5aUg1YndwM29PTmdBc1F2WWVDMHFNcUVSTE9QeDdtOFFXMjUK",
+      "endpoints": [
+        "https://github.com/devharlequin/desktop-shrine/releases/latest/download/latest.json"
+      ],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

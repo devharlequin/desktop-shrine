@@ -30,7 +30,20 @@ and each other — welcome, no permission needed. What still stands:
   on/above the stairs needs z>20 until past scene y=-52. Scene z = manifest z × 4.
   Settled garden leaves live at z=20.4 (30.5 on the sand bed) — under the walkers.
 - Corner glyph row (right offsets): × 10, − 34, ♪ 58, ♫ 82, ☂︎ 106, ≋ 130, ⟳ 154.
-- Updates: `⟳` checks GitHub releases for a tag newer than the app version and
-  opens the releases page. Publishing an update = push a release tagged `vX.Y.Z`
-  with the setup exe attached, with the version bumped in tauri.conf.json,
-  package.json, and Cargo.toml.
+- Updates: `⟳` uses the Tauri updater — it checks `releases/latest/download/latest.json`,
+  and clicking it downloads the new setup exe, verifies its minisign signature,
+  runs the installer (passive), and relaunches. Browser fallback (releases page)
+  only if that fails.
+
+### Publishing a release (the updater depends on every step)
+1. Bump the version in **tauri.conf.json, package.json, and src-tauri/Cargo.toml**.
+2. Build **signed**: set `TAURI_SIGNING_PRIVATE_KEY` to the private key's
+   *content* (e.g. `export TAURI_SIGNING_PRIVATE_KEY="$(cat <keyfile>)"` — the
+   `_PATH` variant is NOT read; key kept OUTSIDE the repo, pubkey pinned in
+   tauri.conf.json must match) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""`,
+   then `npx tauri build`. This produces the `-setup.exe` and a `.sig` beside it.
+3. `node tools/make_latest_json.mjs` → writes `latest.json` into the bundle dir.
+4. `gh release create vX.Y.Z <setup.exe> <setup.exe.sig> <latest.json> --title ... --notes ...`
+   — **all three assets**, on a tag matching the version. Older shrines' ⟳
+   glyphs glow within a launch, and one click carries the update in.
+   (An unsigned build or a missing latest.json breaks auto-update for that release.)
