@@ -64,7 +64,12 @@ export class LeafSprites {
         new THREE.PlaneGeometry(4, 3),
         new THREE.MeshLambertMaterial({ color: cols[l.kind], transparent: true }),
       );
-      m.position.set(l.x - VIRTUAL_W / 2, VIRTUAL_H / 2 - l.y, 31);
+      // settled leaves lie UNDER whoever walks past (keeper 26+, cat 20.7+ on the
+      // stairs) but above the steps quad (20) — except on the sand bed (30), where
+      // they must stay in front of the sand or they'd vanish behind it. No walker
+      // crosses the sand bed, so 30.5 never covers anyone.
+      const onSand = l.x >= SAND_RECT.x && l.x <= SAND_RECT.x + SAND_RECT.w && l.y >= SAND_RECT.y;
+      m.position.set(l.x - VIRTUAL_W / 2, VIRTUAL_H / 2 - l.y, onSand ? 30.5 : 20.4);
       m.rotation.z = ((l.x * 13) % 7) / 7;
       this.group.add(m);
     }

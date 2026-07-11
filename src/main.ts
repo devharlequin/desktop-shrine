@@ -61,12 +61,31 @@ async function boot() {
   };
   document.body.appendChild(closeBtn);
 
-  // mute toggle beside it, equally quiet about itself
+  const isTauri = '__TAURI_INTERNALS__' in window;
+
+  // minimize beside the ×, Windows-fashion — the shrine waits on the taskbar
+  if (isTauri) {
+    const minBtn = document.createElement('div');
+    minBtn.textContent = '−';
+    minBtn.style.cssText =
+      'position:fixed;top:4px;right:34px;font:18px monospace;color:#cfc8e0;' +
+      'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+      'transition:opacity 0.2s';
+    minBtn.onmouseenter = () => (minBtn.style.opacity = '0.9');
+    minBtn.onmouseleave = () => (minBtn.style.opacity = '0.18');
+    minBtn.onclick = async () => {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().minimize();
+    };
+    document.body.appendChild(minBtn);
+  }
+
+  // mute toggle beside them, equally quiet about itself
   const muteBtn = document.createElement('div');
   const muteGlyph = () => (muteBtn.textContent = isMuted() ? '♪̸' : '♪');
   muteGlyph();
   muteBtn.style.cssText =
-    'position:fixed;top:6px;right:34px;font:14px monospace;color:#cfc8e0;' +
+    'position:fixed;top:6px;right:58px;font:14px monospace;color:#cfc8e0;' +
     'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
     'transition:opacity 0.2s';
   muteBtn.onmouseenter = () => (muteBtn.style.opacity = '0.9');
@@ -79,7 +98,7 @@ async function boot() {
   const musicGlyph = () => (musicBtn.textContent = isMusicMuted() ? '♫̸' : '♫');
   musicGlyph();
   musicBtn.style.cssText =
-    'position:fixed;top:6px;right:58px;font:14px monospace;color:#cfc8e0;' +
+    'position:fixed;top:6px;right:82px;font:14px monospace;color:#cfc8e0;' +
     'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
     'transition:opacity 0.2s';
   musicBtn.onmouseenter = () => (musicBtn.style.opacity = '0.9');
@@ -103,9 +122,57 @@ async function boot() {
     b.onclick = () => { setAmbient(kind, !isAmbientOn(kind)); rest(); };
     document.body.appendChild(b);
   };
-  ambBtn('rain', '☂︎', 82);
-  ambBtn('wind', '≋', 106);
+  ambBtn('rain', '☂︎', 106);
+  ambBtn('wind', '≋', 130);
   resumeAmbients();
+
+  // the update glyph: dormant when the shrine is current, warmly lit when a
+  // newer shrine exists. Clicking it opens the releases page. Never speaks.
+  if (isTauri) {
+    const updBtn = document.createElement('div');
+    updBtn.textContent = '⟳';
+    let updateFound = false;
+    const rest = () => {
+      updBtn.style.opacity = updateFound ? '0.7' : '0.18';
+      updBtn.style.color = updateFound ? '#e8b060' : '#cfc8e0';
+    };
+    updBtn.style.cssText =
+      'position:fixed;top:6px;right:154px;font:14px monospace;color:#cfc8e0;' +
+      'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+      'transition:opacity 0.4s,color 0.4s';
+    const newerThan = (a: string, b: string) => { // semver a > b
+      const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+      for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+      return false;
+    };
+    const checkUpdate = async () => {
+      try {
+        const r = await fetch(
+          'https://api.github.com/repos/devharlequin/desktop-shrine/releases/latest',
+          { headers: { Accept: 'application/vnd.github+json' } },
+        );
+        if (!r.ok) return false;
+        const latest = (((await r.json()).tag_name as string) ?? '').replace(/^v/, '');
+        const { getVersion } = await import('@tauri-apps/api/app');
+        return !!latest && newerThan(latest, await getVersion());
+      } catch { return false; } // offline: the shrine doesn't mind
+    };
+    updBtn.onmouseenter = () => (updBtn.style.opacity = '0.9');
+    updBtn.onmouseleave = rest;
+    updBtn.onclick = async () => {
+      updateFound = await checkUpdate();
+      if (updateFound) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('open_releases_page');
+      } else {
+        // a soft dip: "I looked; you already have the newest shrine"
+        updBtn.style.opacity = '0.05';
+        setTimeout(rest, 450);
+      }
+    };
+    document.body.appendChild(updBtn);
+    void checkUpdate().then(f => { updateFound = f; rest(); }); // quiet look at boot
+  }
 
   const px = new PixelRenderer(canvas);
   const bridge = await makeBridge();

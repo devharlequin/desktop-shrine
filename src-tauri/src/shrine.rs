@@ -58,6 +58,18 @@ pub fn move_to_reliquary(src: String) -> Result<String, String> {
     Ok(dest.to_string_lossy().to_string())
 }
 
+/// Open the shrine's releases page in the default browser — where a newer
+/// build of the shrine may be waiting. URL fixed here so the webview can't
+/// steer the browser anywhere else.
+#[tauri::command]
+pub fn open_releases_page() -> Result<(), String> {
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", "https://github.com/devharlequin/desktop-shrine/releases/latest"])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn append_ledger(entry: String) -> Result<(), String> {
     let p = ledger_path();

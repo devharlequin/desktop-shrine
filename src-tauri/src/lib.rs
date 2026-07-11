@@ -13,12 +13,14 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // a second launch just visits the existing shrine
             if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
                 let _ = w.show();
                 let _ = w.set_focus();
             }
         }))
         .invoke_handler(tauri::generate_handler![
             shrine::move_to_reliquary,
+            shrine::open_releases_page,
             shrine::append_ledger,
             shrine::read_text,
             shrine::write_text,
@@ -50,6 +52,7 @@ pub fn run() {
                     match event.id.as_ref() {
                         "visit" => {
                             if let Some(w) = win {
+                                let _ = w.unminimize();
                                 let _ = w.show();
                                 let _ = w.set_focus();
                             }

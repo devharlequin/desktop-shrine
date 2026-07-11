@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "shrine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "dev.fable.shrine",
   "build": {
     "frontendDist": "../dist",
@@ -20,7 +20,7 @@
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "shadow": false
       }
     ],
