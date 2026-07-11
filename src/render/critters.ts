@@ -7,7 +7,8 @@ interface Critter {
   kind: CritterKind;
   home: THREE.Vector3;
   range: number;         // how far from home it may wander (x)
-  mode: 'idle' | 'walk' | 'hop';
+  mode: 'idle' | 'walk' | 'hop' | 'slump';
+  slumpUntil: number;
   targetX: number;
   nextAt: number;        // t when the next action may begin
   hopStart: number;
@@ -29,6 +30,7 @@ export class Critters {
       nextAt: 4 + Math.random() * 20,
       hopStart: 0,
       facing: 1,
+      slumpUntil: 0,
     });
   }
 
@@ -40,11 +42,17 @@ export class Critters {
           c.mode = 'walk';
           c.targetX = c.home.x + (Math.random() * 2 - 1) * c.range;
         } else {
-          // spirits mostly hop in place; sometimes just turn to look around
-          if (Math.random() < 0.35) {
+          // spirits mostly hop in place; sometimes turn to look around;
+          // sometimes rest their little arms — holding things up all day is hard work
+          const roll = Math.random();
+          if (roll < 0.3) {
             c.facing *= -1;
             c.mesh.scale.x = Math.abs(c.mesh.scale.x) * c.facing;
             c.nextAt = t + 10 + Math.random() * 30;
+          } else if (roll < 0.55) {
+            c.mode = 'slump';
+            c.hopStart = t; // reuse as slump start for the ease-in
+            c.slumpUntil = t + 6 + Math.random() * 12;
           } else {
             c.mode = 'hop';
             c.hopStart = t;
@@ -68,6 +76,18 @@ export class Critters {
         } else {
           c.mesh.position.x += dir * step;
           c.mesh.position.y = c.home.y + Math.abs(Math.sin(t * 7)) * 0.6; // soft amble
+        }
+      } else if (c.mode === 'slump') {
+        if (t >= c.slumpUntil) {
+          c.mesh.rotation.z = 0;
+          c.mesh.scale.y = 1;
+          c.mode = 'idle';
+          c.nextAt = t + 12 + Math.random() * 30;
+        } else {
+          // ease into a weary little lean
+          const k = Math.min(1, (t - c.hopStart) / 1.5);
+          c.mesh.rotation.z = 0.1 * c.facing * k;
+          c.mesh.scale.y = 1 - 0.06 * k;
         }
       } else if (c.mode === 'hop') {
         const k = (t - c.hopStart) / 0.38;

@@ -57,6 +57,8 @@ def slice_all():
             erase_from(im, r["rect"], r.get("sampleSide", "left"))
     manifest = {}
     for name, r in spec["layers"].items():
+        if r.get("noTile"):
+            continue  # erased from parents only (e.g. the leaning broom — the keeper carries one now)
         x, y, w, h = r["rect"]
         src = original if r.get("eraseFromParent") else im
         tile = src.crop((x, y, x + w, y + h))

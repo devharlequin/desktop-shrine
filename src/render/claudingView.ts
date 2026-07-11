@@ -1,40 +1,60 @@
 import * as THREE from 'three';
-import { loadTex } from './scene';
+import { loadTex, S } from './scene';
 import type { Activity } from '../core/clauding';
 
-const FRAMES = { idle: 0, step: 1, bow: 2, sleep: 3 } as const;
-export type Frame = keyof typeof FRAMES;
+export type Frame = 'idle' | 'step' | 'bow' | 'sleep';
 
-/** Named spots in scene coords. Tuned against the sliced layout (source/S mapping). */
+/** Named spots in scene coords. Tuned against the sliced layout. */
 export const SPOTS = {
   stepsBase: new THREE.Vector3(-30, -100, 26),
   plate: new THREE.Vector3(0, -92, 27),
-  sanctum: new THREE.Vector3(0, -18, 9),
+  sanctum: new THREE.Vector3(0, -18, 9),          // into the dark, for delivering offerings
+  sleepSpot: new THREE.Vector3(32, -46, 17),      // curled beside the altar, in candle glow
   candleL: new THREE.Vector3(-62, -55, 24),
   candleR: new THREE.Vector3(60, -55, 24),
   sweepA: new THREE.Vector3(-80, -95, 26),
-  sweepB: new THREE.Vector3(55, -95, 26),
-  sandEdge: new THREE.Vector3(-55, -105, 28),
+  sweepB: new THREE.Vector3(-15, -95, 26),       // clear of the sand bed AND the orange spirit's spot
+  sandEdge: new THREE.Vector3(38, -100, 26),     // admires the rake lines from the edge
+  homeCorner: new THREE.Vector3(-93, -98, 26),   // where he stood in the art, broom at hand
 };
+
+// the purple hooded spirit from the source art IS the keeper
+const KEEPER_W = 96 * S;  // ~25.2 virtual px
+const KEEPER_H = 75 * S;  // ~19.7
 
 export class ClaudingView {
   mesh: THREE.Mesh;
-  private tex: THREE.Texture;
+  private broom: THREE.Mesh;
+  private frame: Frame = 'idle';
+  private facing = 1;
   private target: THREE.Vector3 | null = null;
   private queue: THREE.Vector3[] = [];
   onArrive: (() => void) | null = null;
 
   constructor() {
-    this.tex = loadTex('clauding');
-    this.tex.repeat.set(0.25, 1);
     this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(16, 16),
-      new THREE.MeshLambertMaterial({ map: this.tex, transparent: true, alphaTest: 0.01 }),
+      new THREE.PlaneGeometry(KEEPER_W, KEEPER_H),
+      new THREE.MeshLambertMaterial({ map: loadTex('mask_purple'), transparent: true, alphaTest: 0.01 }),
     );
-    this.mesh.position.copy(SPOTS.stepsBase);
+    this.mesh.position.copy(SPOTS.homeCorner);
+
+    this.broom = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 15),
+      new THREE.MeshLambertMaterial({ map: loadTex('broom'), transparent: true, alphaTest: 0.01 }),
+    );
+    this.broom.position.set(KEEPER_W * 0.46, -3, 0.5); // held at his side, bristles down
+    this.broom.visible = false;
+    this.mesh.add(this.broom);
   }
 
-  setFrame(f: Frame) { this.tex.offset.x = FRAMES[f] * 0.25; }
+  setFrame(f: Frame) {
+    this.frame = f;
+    const m = this.mesh;
+    m.scale.set(this.facing, 1, 1);
+    m.rotation.z = 0;
+    if (f === 'bow') { m.scale.y = 0.8; m.rotation.z = 0.12 * this.facing; }
+    if (f === 'sleep') { m.scale.y = 0.86; m.rotation.z = 0.08; }
+  }
 
   walkTo(...pts: THREE.Vector3[]) {
     this.queue = [...pts];
@@ -58,20 +78,23 @@ export class ClaudingView {
         cb?.();
       }
     } else {
+      if (Math.abs(d.x) > 0.5) this.facing = d.x < 0 ? -1 : 1;
       p.add(d.setLength(step));
-      this.setFrame(Math.floor(t * 5) % 2 ? 'step' : 'idle'); // walk cycle
+      // little waddle instead of a walk cycle — he's a spirit, not a person
+      this.mesh.scale.set(this.facing, 1, 1);
+      this.mesh.rotation.z = Math.sin(t * 8) * 0.06;
+      if (this.broom.visible) this.broom.rotation.z = Math.sin(t * 8) * 0.18; // sweep-sweep
     }
   }
 
   /** Ambient behavior per activity when not walking; call each frame. */
   ambient(activity: Activity, t: number) {
+    this.broom.visible = activity === 'sweeping' || activity === 'tending';
     if (this.busy || activity === 'ceremony') return;
     if (activity === 'sleeping') {
-      this.setFrame('sleep');
-      this.mesh.position.copy(SPOTS.sanctum);
+      if (this.frame !== 'sleep') { this.setFrame('sleep'); this.mesh.position.copy(SPOTS.sleepSpot); }
       return;
     }
-    // wander cadence: act once when the second-counter crosses a slot boundary
     const slot = Math.floor(t);
     if (slot === this.lastSlot) return;
     this.lastSlot = slot;
@@ -80,9 +103,10 @@ export class ClaudingView {
     } else if (activity === 'lighting-candles' && slot % 12 === 0) {
       this.walkTo(Math.random() < 0.5 ? SPOTS.candleL : SPOTS.candleR);
     } else if (activity === 'tending' && slot % 15 === 0) {
-      this.walkTo(Math.random() < 0.5 ? SPOTS.sandEdge : SPOTS.stepsBase);
+      this.walkTo(Math.random() < 0.5 ? SPOTS.sandEdge : SPOTS.homeCorner);
     } else if (activity === 'idle') {
-      this.setFrame('idle');
+      if (this.frame !== 'idle') this.setFrame('idle');
+      if (slot % 40 === 0) this.walkTo(SPOTS.homeCorner); // drifts back to his corner
     }
   }
   private lastSlot = -1;

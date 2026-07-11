@@ -36,6 +36,25 @@ async function boot() {
   const canvas = document.createElement('canvas');
   document.querySelector('#app')!.appendChild(canvas);
 
+  // a quiet [x], top right — barely there until you look for it
+  const closeBtn = document.createElement('div');
+  closeBtn.textContent = '×';
+  closeBtn.style.cssText =
+    'position:fixed;top:4px;right:10px;font:18px monospace;color:#cfc8e0;' +
+    'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+    'transition:opacity 0.2s';
+  closeBtn.onmouseenter = () => (closeBtn.style.opacity = '0.9');
+  closeBtn.onmouseleave = () => (closeBtn.style.opacity = '0.18');
+  closeBtn.onclick = async () => {
+    if ('__TAURI_INTERNALS__' in window) {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().close();
+    } else {
+      window.close();
+    }
+  };
+  document.body.appendChild(closeBtn);
+
   const px = new PixelRenderer(canvas);
   const bridge = await makeBridge();
   const { scene, camera, layers } = await buildShrineScene();
@@ -62,6 +81,7 @@ async function boot() {
   const brain = new ClaudingBrain();
   const view = new ClaudingView();
   scene.add(view.mesh);
+  layers.get('mask_purple')?.removeFromParent(); // he's not scenery anymore — he's the keeper
 
   const moths = new Moths([candleL, candleR]);
   scene.add(moths.group);
@@ -75,10 +95,9 @@ async function boot() {
   const lanternBugs = new Moths(lanternPos, 4, 0xf0c860, 6);
   scene.add(lanternBugs.group);
 
-  // the garden's small residents
+  // the garden's small residents (the purple one is the keeper now, not a critter)
   const critters = new Critters();
   critters.add(layers.get('cat'), 'cat', 34);
-  critters.add(layers.get('mask_purple'), 'mask', 8);
   critters.add(layers.get('mask_orange'), 'mask', 8);
 
   // --- the tended ground ---

@@ -18,6 +18,7 @@
     "candle_l":       { "rect": [545, 665, 35, 55],      "z": 6 },
     "candle_r":       { "rect": [1010, 665, 35, 55],     "z": 6 },
     "mask_purple":    { "rect": [400, 830, 96, 75],      "z": 7, "eraseFromParent": true, "cutout": true },
+    "broom_spot":     { "rect": [482, 855, 66, 70],      "z": 0, "eraseFromParent": true, "noTile": true, "sampleSide": "below" },
     "mask_orange":    { "rect": [890, 800, 100, 98],     "z": 7, "eraseFromParent": true, "cutout": true },
     "cat":            { "rect": [605, 830, 100, 70],     "z": 7, "eraseFromParent": true, "cutout": true }
   }

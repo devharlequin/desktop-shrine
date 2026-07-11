@@ -43,7 +43,7 @@ export class Lights {
   update(now: Date, t: number) {
     const tod = timeOfDay(now);
     this.ambient.intensity =
-      ({ dawn: 0.72, day: 1.0, dusk: 0.6, night: 0.4 } as const)[tod] * (1 - this.dim);
+      ({ dawn: 0.78, day: 1.05, dusk: 0.72, night: 0.58 } as const)[tod] * (1 - this.dim);
     const flicker = () => 0.85 + 0.15 * Math.sin(t * 7 + Math.sin(t * 3.1)) * Math.sin(t * 11.7);
     const base = this.candlesLit ? (tod === 'night' ? 2.2 : tod === 'dusk' ? 1.6 : 0.5) : 0;
     this.candleL.intensity = (base + this.candlesBoost) * flicker() * CANDLE_POWER;
