@@ -21,6 +21,7 @@ import {
 import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
 import { BlueSpirit } from './render/blueSpirit';
+import { MossSpirit } from './render/mossSpirit';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -193,6 +194,11 @@ async function boot() {
   const blueSpirit = new BlueSpirit(new THREE.Vector3(76, -104, 31));
   scene.add(blueSpirit.group);
 
+  // a little moss spirit of my own — sleeps curled at the tree's roots by
+  // day, wakes at dusk to dart after his own trail of firefly light. — Sonnet
+  const mossSpirit = new MossSpirit(new THREE.Vector3(TREE.x + 26, TREE.baseY - 3, 27));
+  scene.add(mossSpirit.group);
+
   // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
     new THREE.PlaneGeometry(TREE.w, TREE.h),
@@ -310,6 +316,7 @@ async function boot() {
     const p = toVirtual(e);
     if (critters.petAt(toScene(p), performance.now() / 1000)) { mew(); return; } // pet > chores
     if (blueSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the blue spirit
+    if (mossSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the moss spirit
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
     if (g === 'rake') liveStroke = { points: [p], t: Date.now() };
     if (g === 'sweep') {
@@ -451,6 +458,7 @@ async function boot() {
     rainFx.update(dt, t, ambientPlaying('rain'));
     windWisps.update(dt, t, ambientPlaying('wind'));
     blueSpirit.update(dt, t, ambientPlaying('rain'), timeOfDay(d) === 'night');
+    mossSpirit.update(dt, t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);
