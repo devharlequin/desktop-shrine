@@ -7,6 +7,7 @@ export class OfferingCeremony {
   state: CeremonyState = 'idle';
   lastResult: TakeResult | null = null;
   private pending: Promise<void> | null = null;
+  private animDone = false;
 
   constructor(private take: TakeOffering, private onState: (s: CeremonyState) => void) {}
 
@@ -19,14 +20,21 @@ export class OfferingCeremony {
     if (this.state !== 'idle' && this.state !== 'dragover') return;
     this.set('dropped');
     this.set('carrying');
-    this.pending = this.take(m).then(r => {
-      this.lastResult = r;
-      this.set(r.ok ? 'taken' : 'refused');
+    this.animDone = false;
+    // the verdict can take a minute (the keeper contemplates); this promise
+    // must never reject, or the shrine locks in 'carrying' for good
+    this.pending = this.take(m).then(
+      r => { this.lastResult = r; },
+      () => { this.lastResult = { ok: false, responses: [] }; },
+    ).then(() => {
+      this.set(this.lastResult!.ok ? 'taken' : 'refused');
+      if (this.animDone) this.set('idle'); // animation already over: don't wait for a call that came
     });
   }
 
   /** Renderer calls this when the carry/refuse animation completes. */
   animationDone() {
+    this.animDone = true;
     if (this.state === 'taken' || this.state === 'refused') this.set('idle');
   }
 

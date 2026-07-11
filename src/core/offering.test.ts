@@ -34,6 +34,20 @@ it('ignores drops while a ceremony is in progress', async () => {
   expect(take).toHaveBeenCalledTimes(1);
 });
 
+it('recovers when the animation finishes before a slow keeper answers (lockout bug)', async () => {
+  let resolve!: (r: { ok: boolean; responses: string[] }) => void;
+  const take = vi.fn().mockReturnValue(new Promise(res => { resolve = res; }));
+  const seen: string[] = [];
+  const c = new OfferingCeremony(take, s => seen.push(s));
+  c.drop(meta);
+  c.animationDone();               // the walk ended while the keeper still contemplates
+  resolve({ ok: true, responses: [] }); // ...a minute later, the verdict
+  await c.settled();
+  expect(c.state).toBe('idle');    // not stuck in 'taken'
+  c.drop(meta);                    // the next gift must be welcome
+  expect(take).toHaveBeenCalledTimes(2);
+});
+
 it('dragleave returns to idle without a ceremony', () => {
   const seen: string[] = [];
   const c = new OfferingCeremony(async () => ({ ok: true, responses: [] }), s => seen.push(s));

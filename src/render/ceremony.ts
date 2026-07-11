@@ -61,11 +61,14 @@ export class CeremonyDirector {
     // 'taken' resolves inside bowThenCarry's timeline via ceremony.lastResult
   }
 
-  private bowThenCarry() {
+  private async bowThenCarry() {
     this.view.setFrame('bow'); // toward the glass — toward you
+    // he holds the bow until the keeper's verdict arrives (it can take a while;
+    // carrying on early left the ceremony stuck in 'taken' with no one to end it)
+    await this.ceremony.settled();
     const linger = this.ceremony.lastResult?.responses.includes('bow-lingered') ?? false;
     setTimeout(() => {
-      if (this.ceremony.state === 'refused') return; // refusal already handled
+      if (this.ceremony.state !== 'taken') return; // refusal (or anything else) already handled
       (this.bundle.material as THREE.MeshLambertMaterial).opacity = 0; // picked up
       if (this.ceremony.lastResult?.responses.includes('bell')) bell();
       // up the stairs in front of the shrine, into the dark only at the doorway
