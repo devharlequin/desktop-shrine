@@ -19,6 +19,8 @@ interface Critter {
   /** waypoint queue for multi-leg journeys (the cat's bedtime pilgrimage) */
   waypoints: THREE.Vector3[];
   cuddling: boolean;     // reached the keeper's bedside tonight
+  /** rightmost x this critter may wander to (garden manners) */
+  maxX?: number;
 }
 
 /** The cat's route up to the keeper's bedside (and back down at dawn).
@@ -70,7 +72,9 @@ export class Critters {
     this.floating.push({ m, born: t });
   }
 
-  add(mesh: THREE.Mesh | undefined, kind: CritterKind, range: number, item?: THREE.Mesh) {
+  /** `maxX` caps how far right the critter may wander (scene x) — used to keep
+   *  the treasure-bearer out of the raked sand bed, which draws in front of him. */
+  add(mesh: THREE.Mesh | undefined, kind: CritterKind, range: number, item?: THREE.Mesh, maxX?: number) {
     if (!mesh) return;
     this.cs.push({
       mesh, kind, range,
@@ -84,6 +88,7 @@ export class Critters {
       item,
       waypoints: [],
       cuddling: false,
+      maxX,
     });
   }
 
@@ -185,6 +190,7 @@ export class Critters {
             c.hopStart = t;
             c.targetX = c.mesh.position.x + (Math.random() * 2 - 1) * 16; // a real hop across the yard
             c.targetX = Math.min(Math.max(c.targetX, c.home.x - c.range), c.home.x + c.range);
+            if (c.maxX != null) c.targetX = Math.min(c.targetX, c.maxX); // he does not hop into the garden
           }
         }
       } else if (c.mode === 'walk') {

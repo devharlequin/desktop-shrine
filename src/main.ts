@@ -253,7 +253,10 @@ async function boot() {
   scene.add(bundle);
   const critters = new Critters();
   critters.add(layers.get('cat'), 'cat', 34);
-  critters.add(layers.get('mask_orange'), 'mask', 20, bundle); // roams a wider patch of yard
+  // roams a wider patch of yard, but never into the sand bed (its quad draws in
+  // front of him at z=30 and swallows him whole; also: garden manners).
+  // 35 keeps him + his set-down bundle left of the bed's edge at scene x=54.
+  critters.add(layers.get('mask_orange'), 'mask', 20, bundle, 35);
   scene.add(critters.hearts);
 
   // Sora (空, "sky") — a little guy of my own; loves the rain, gazes at the
