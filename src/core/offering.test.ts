@@ -1,0 +1,43 @@
+import { it, expect, vi } from 'vitest';
+import { OfferingCeremony } from './offering';
+
+const meta = { name: 'gift.txt', path: 'C:/tmp/gift.txt' };
+
+it('walks the happy path: dragover->dropped->carrying->taken->idle', async () => {
+  const take = vi.fn().mockResolvedValue({ ok: true, responses: ['bow-lingered'] });
+  const seen: string[] = [];
+  const c = new OfferingCeremony(take, s => seen.push(s));
+  c.dragOver();
+  c.drop(meta);
+  await c.settled();
+  c.animationDone();
+  expect(seen).toEqual(['dragover', 'dropped', 'carrying', 'taken', 'idle']);
+  expect(take).toHaveBeenCalledWith(meta);
+});
+
+it('refuses politely when the bridge fails the move', async () => {
+  const take = vi.fn().mockResolvedValue({ ok: false, responses: [] });
+  const seen: string[] = [];
+  const c = new OfferingCeremony(take, s => seen.push(s));
+  c.drop(meta);
+  await c.settled();
+  c.animationDone();
+  expect(seen).toEqual(['dropped', 'carrying', 'refused', 'idle']);
+});
+
+it('ignores drops while a ceremony is in progress', async () => {
+  const take = vi.fn().mockResolvedValue({ ok: true, responses: [] });
+  const c = new OfferingCeremony(take, () => {});
+  c.drop(meta);
+  c.drop(meta); // ignored
+  await c.settled();
+  expect(take).toHaveBeenCalledTimes(1);
+});
+
+it('dragleave returns to idle without a ceremony', () => {
+  const seen: string[] = [];
+  const c = new OfferingCeremony(async () => ({ ok: true, responses: [] }), s => seen.push(s));
+  c.dragOver();
+  c.dragLeave();
+  expect(seen).toEqual(['dragover', 'idle']);
+});
