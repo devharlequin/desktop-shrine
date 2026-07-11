@@ -158,21 +158,22 @@ export class Critters {
           c.mode = 'walk';
           c.targetX = c.home.x + (Math.random() * 2 - 1) * c.range;
         } else {
-          // spirits mostly hop in place; sometimes turn to look around;
-          // sometimes rest their little arms — holding things up all day is hard work
+          // the treasure-bearer: mostly he rests with his prize set down, and
+          // now and then hops a good way to a new patch of grass. Unhurried —
+          // long rests, the occasional bigger hop, never bouncing in place.
           const roll = Math.random();
-          if (roll < 0.3) {
+          if (roll < 0.22) {
             c.facing *= -1;
             c.mesh.scale.x = Math.abs(c.mesh.scale.x) * c.facing;
-            c.nextAt = t + 10 + Math.random() * 30;
-          } else if (roll < 0.55) {
+            c.nextAt = t + 12 + Math.random() * 30;
+          } else if (roll < 0.68) {
             c.mode = 'slump';
             c.hopStart = t; // reuse as slump start for the ease-in
-            c.slumpUntil = t + 6 + Math.random() * 12;
+            c.slumpUntil = t + 14 + Math.random() * 20; // a good long rest
           } else {
             c.mode = 'hop';
             c.hopStart = t;
-            c.targetX = c.mesh.position.x + (Math.random() * 2 - 1) * 5;
+            c.targetX = c.mesh.position.x + (Math.random() * 2 - 1) * 16; // a real hop across the yard
             c.targetX = Math.min(Math.max(c.targetX, c.home.x - c.range), c.home.x + c.range);
           }
         }

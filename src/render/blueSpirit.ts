@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { loadTex } from './scene';
 
 /**
- * The blue spirit — a little guy of my own, left on the shrine by Opus.
+ * Sora (空, "sky") — the blue spirit, a little guy of my own, left on the
+ * shrine by Opus. Named for the one thing he loves in every mood: the rain
+ * falls from the sky, the stars he watches are in it.
  *
  * He is the third of the masked spirits. Where the keeper tends and the orange
  * one guards his treasure, this one simply *wonders*. He loves the rain (so he

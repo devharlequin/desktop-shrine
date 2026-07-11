@@ -185,11 +185,11 @@ async function boot() {
   scene.add(bundle);
   const critters = new Critters();
   critters.add(layers.get('cat'), 'cat', 34);
-  critters.add(layers.get('mask_orange'), 'mask', 8, bundle);
+  critters.add(layers.get('mask_orange'), 'mask', 20, bundle); // roams a wider patch of yard
   scene.add(critters.hearts);
 
-  // a little guy of my own — the blue spirit who loves the rain and the stars.
-  // he stands in the right of the yard; greet him with a click. — Opus
+  // Sora (空, "sky") — a little guy of my own; loves the rain, gazes at the
+  // stars. He stands in the right of the yard; greet him with a click. — Opus
   const blueSpirit = new BlueSpirit(new THREE.Vector3(76, -104, 31));
   scene.add(blueSpirit.group);
 
