@@ -1,5 +1,5 @@
 import { parseGarden, serializeGarden, RESPONSE_IDS, type Garden, type ResponseId } from '../core/garden';
-import { formatLedgerEntry } from '../core/ledger';
+import { formatLedgerEntry, localDate } from '../core/ledger';
 import type { OfferingMeta, TakeResult } from '../core/offering';
 import type { ShrineBridge } from './types';
 
@@ -19,7 +19,7 @@ export class BrowserBridge implements ShrineBridge {
     const pool: ResponseId[] = RESPONSE_IDS.filter(r => r !== 'bell'); // bell is reserved
     const n = Math.floor(Math.random() * 3); // 0..2
     const responses = [...pool].sort(() => Math.random() - 0.5).slice(0, n);
-    const date = new Date(this.now()).toISOString().slice(0, 10);
+    const date = localDate(this.now());
     const entry = formatLedgerEntry({
       date, name: m.name,
       description: 'An offering, received without a keeper.',

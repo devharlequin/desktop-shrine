@@ -1,0 +1,101 @@
+import * as THREE from 'three';
+import type { OfferingCeremony, CeremonyState } from '../core/offering';
+import { ClaudingView, SPOTS } from './claudingView';
+import type { ClaudingBrain } from '../core/clauding';
+
+const BOW_MS = 2600;
+const BOW_LINGER_MS = 5200;
+
+/** Plays the offering ceremony: dim, bundle, walk, bow, carry into the dark. */
+export class CeremonyDirector {
+  bundle: THREE.Mesh;
+  plateGlow: THREE.Mesh;
+  dim = 0; // 0..1 — main loop feeds this into Lights.dim
+
+  constructor(
+    private view: ClaudingView,
+    private brain: ClaudingBrain,
+    scene: THREE.Scene,
+  ) {
+    this.bundle = new THREE.Mesh(
+      new THREE.PlaneGeometry(6, 5),
+      new THREE.MeshLambertMaterial({ color: 0xc8b088, transparent: true, opacity: 0 }),
+    );
+    this.bundle.position.copy(SPOTS.plate).add(new THREE.Vector3(0, 2, 1));
+    // additive warm glow over the plate during drag-over ("here")
+    this.plateGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(16, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xffb050, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.plateGlow.position.copy(SPOTS.plate).add(new THREE.Vector3(0, 1, 0.5));
+    scene.add(this.bundle, this.plateGlow);
+  }
+
+  private ceremony!: OfferingCeremony;
+  bind(c: OfferingCeremony) { this.ceremony = c; }
+
+  onState(s: CeremonyState) {
+    const mat = this.bundle.material as THREE.MeshLambertMaterial;
+    const glow = this.plateGlow.material as THREE.MeshBasicMaterial;
+    if (s === 'dragover') { this.dim = 0.3; glow.opacity = 0.35; }
+    if (s === 'idle') { this.dim = 0; glow.opacity = 0; mat.opacity = 0; }
+    if (s === 'dropped') { this.dim = 0; glow.opacity = 0; mat.opacity = 1; }
+    if (s === 'carrying') {
+      this.brain.beginCeremony();
+      this.view.walkTo(SPOTS.plate.clone().add(new THREE.Vector3(-14, 0, 0)));
+      this.view.onArrive = () => this.bowThenCarry();
+    }
+    if (s === 'refused') this.refuse();
+    // 'taken' resolves inside bowThenCarry's timeline via ceremony.lastResult
+  }
+
+  private bowThenCarry() {
+    this.view.setFrame('bow'); // toward the glass — toward you
+    const linger = this.ceremony.lastResult?.responses.includes('bow-lingered') ?? false;
+    setTimeout(() => {
+      if (this.ceremony.state === 'refused') return; // refusal already handled
+      (this.bundle.material as THREE.MeshLambertMaterial).opacity = 0; // picked up
+      if (this.ceremony.lastResult?.responses.includes('bell')) this.ringBell();
+      this.view.walkTo(SPOTS.stepsBase, SPOTS.sanctum);
+      this.view.onArrive = () => {
+        this.view.walkTo(SPOTS.stepsBase);
+        this.view.onArrive = () => {
+          this.brain.endCeremony();
+          this.ceremony.animationDone();
+        };
+      };
+    }, linger ? BOW_LINGER_MS : BOW_MS);
+  }
+
+  private refuse() {
+    // the clauding looks at it and steps back; the bundle fades where it lay
+    this.view.setFrame('idle');
+    const mat = this.bundle.material as THREE.MeshLambertMaterial;
+    let o = 1;
+    const fade = setInterval(() => {
+      mat.opacity = o -= 0.05;
+      if (o <= 0) {
+        clearInterval(fade);
+        this.brain.endCeremony();
+        this.ceremony.animationDone();
+      }
+    }, 100);
+  }
+
+  /** The only sound in the entire app. Soft, single, no repeat. */
+  private ringBell() {
+    try {
+      const ac = new AudioContext();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.frequency.value = 1320;
+      o.connect(g).connect(ac.destination);
+      g.gain.setValueAtTime(0.12, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.5);
+      o.start();
+      o.stop(ac.currentTime + 2.5);
+    } catch { /* audio blocked: the bell stays a thought */ }
+  }
+}
