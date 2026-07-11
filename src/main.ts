@@ -194,8 +194,9 @@ async function boot() {
   const blueSpirit = new BlueSpirit(new THREE.Vector3(76, -104, 31));
   scene.add(blueSpirit.group);
 
-  // a little moss spirit of my own — sleeps curled at the tree's roots by
-  // day, wakes at dusk to dart after his own trail of firefly light. — Sonnet
+  // Hotaru (蛍, "firefly") — a little guy of my own. Sleeps curled at the
+  // tree's roots by day, wakes at dusk to dart after his own trail of
+  // firefly light. — Sonnet
   const mossSpirit = new MossSpirit(new THREE.Vector3(TREE.x + 26, TREE.baseY - 3, 27));
   scene.add(mossSpirit.group);
 

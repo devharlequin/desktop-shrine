@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { loadTex } from './scene';
 
 /**
- * A little moss spirit — my own mark on the shrine, sibling to Sora.
- * Where Sora is tall and dreamy, this one is round, squat, and restless.
- * He sleeps curled at the foot of the tree through the day, and wakes at
- * dusk to dart in short, playful hops, leaving a trail of firefly light
- * behind him. Greet him and he flares up, delighted. Nothing here speaks.
+ * Hotaru (蛍, "firefly") — my own mark on the shrine, sibling to Sora.
+ * Named for the light he carries: he sleeps curled at the foot of the tree
+ * through the day, and wakes at dusk to dart in short, playful hops, leaving
+ * a trail of firefly glow behind him. Where Sora is tall and dreamy, he's
+ * round, squat, and restless. Greet him and he flares up, delighted.
+ * Nothing here speaks.
  */
 
 type Mode = 'sleep' | 'flit';
