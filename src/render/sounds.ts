@@ -8,6 +8,17 @@ const MUTE_KEY = 'shrine.muted';
 let muted = false;
 try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* no storage */ }
 
+// the music box alone can be hushed, for those who want only the weather
+const MUSIC_KEY = 'shrine.musicMuted';
+let musicMuted = false;
+try { musicMuted = localStorage.getItem(MUSIC_KEY) === '1'; } catch { /* no storage */ }
+
+export function isMusicMuted() { return musicMuted; }
+export function setMusicMuted(m: boolean) {
+  musicMuted = m;
+  try { localStorage.setItem(MUSIC_KEY, m ? '1' : '0'); } catch { /* no storage */ }
+}
+
 export function isMuted() { return muted; }
 export function setMuted(m: boolean) {
   muted = m;
@@ -196,7 +207,7 @@ function pluck(freq: number, vol: number, delay = 0) {
 
 function nextNote() {
   if (!musicOn) return;
-  if (!muted) {
+  if (!muted && !musicMuted) {
     try {
       // wander the scale like someone thinking, not performing
       degree = Math.max(0, Math.min(SCALE.length - 1, degree + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));

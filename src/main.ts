@@ -18,7 +18,7 @@ import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew, isMuted, setMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients } from './render/sounds';
+import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients } from './render/sounds';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -71,6 +71,19 @@ async function boot() {
   muteBtn.onclick = () => { setMuted(!isMuted()); muteGlyph(); };
   document.body.appendChild(muteBtn);
 
+  // the music box's own hush — for those who want only the weather
+  const musicBtn = document.createElement('div');
+  const musicGlyph = () => (musicBtn.textContent = isMusicMuted() ? '♫̸' : '♫');
+  musicGlyph();
+  musicBtn.style.cssText =
+    'position:fixed;top:6px;right:58px;font:14px monospace;color:#cfc8e0;' +
+    'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+    'transition:opacity 0.2s';
+  musicBtn.onmouseenter = () => (musicBtn.style.opacity = '0.9');
+  musicBtn.onmouseleave = () => (musicBtn.style.opacity = '0.18');
+  musicBtn.onclick = () => { setMusicMuted(!isMusicMuted()); musicGlyph(); };
+  document.body.appendChild(musicBtn);
+
   // ambient weather toggles — rain and wind for working beside the shrine.
   // when on, they stay faintly lit so you can find them again.
   const ambBtn = (kind: 'rain' | 'wind', glyph: string, right: number) => {
@@ -87,8 +100,8 @@ async function boot() {
     b.onclick = () => { setAmbient(kind, !isAmbientOn(kind)); rest(); };
     document.body.appendChild(b);
   };
-  ambBtn('rain', '☂︎', 58);
-  ambBtn('wind', '≋', 82);
+  ambBtn('rain', '☂︎', 82);
+  ambBtn('wind', '≋', 106);
   resumeAmbients();
 
   const px = new PixelRenderer(canvas);
