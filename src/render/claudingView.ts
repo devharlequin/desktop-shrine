@@ -5,9 +5,12 @@ import type { Activity } from '../core/clauding';
 export type Frame = 'idle' | 'step' | 'bow' | 'sleep';
 
 /** Named spots in scene coords. Tuned against the sliced layout. */
+/** Yard-level spots sit at z=28.6 — in FRONT of the critters (z=28): the keeper
+ *  walks the south edge of the yard, so he passes before the orange goober and
+ *  the cat, never hiding behind them. Stair/platform spots keep their climb z. */
 export const SPOTS = {
-  stepsBase: new THREE.Vector3(-30, -100, 26),
-  plate: new THREE.Vector3(0, -92, 27),
+  stepsBase: new THREE.Vector3(-30, -100, 28.6),
+  plate: new THREE.Vector3(0, -92, 28.6),
   doorway: new THREE.Vector3(-30, -38, 13),       // the little door left of the altar
   sanctum: new THREE.Vector3(-30, -30, 9),        // through the door, into the dark
   sleepSpot: new THREE.Vector3(32, -46, 20.6),    // his bed beside the altar, in candle glow
@@ -19,10 +22,10 @@ export const SPOTS = {
   climb3: new THREE.Vector3(-26, -44, 14),
   candleL: new THREE.Vector3(-62, -55, 24),
   candleR: new THREE.Vector3(60, -55, 24),
-  sweepA: new THREE.Vector3(-80, -95, 26),
-  sweepB: new THREE.Vector3(-15, -95, 26),       // clear of the sand bed AND the orange spirit's spot
-  sandEdge: new THREE.Vector3(38, -100, 26),     // admires the rake lines from the edge
-  homeCorner: new THREE.Vector3(-93, -98, 26),   // where he stood in the art, broom at hand
+  sweepA: new THREE.Vector3(-80, -95, 28.6),
+  sweepB: new THREE.Vector3(-15, -95, 28.6),     // clear of the sand bed AND the orange spirit's spot
+  sandEdge: new THREE.Vector3(38, -100, 28.6),   // admires the rake lines from the edge
+  homeCorner: new THREE.Vector3(-93, -98, 28.6), // where he stood in the art, broom at hand
 };
 
 // the purple hooded spirit from the source art IS the keeper
