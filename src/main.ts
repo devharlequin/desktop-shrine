@@ -200,7 +200,11 @@ async function boot() {
     }
   } else {
     // browser: HTML5 drag and drop, no real paths
-    addEventListener('dragover', e => { e.preventDefault(); if (!quieted) ceremony.dragOver(); });
+    addEventListener('dragover', e => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; // OS cursor shows the + affordance
+      if (!quieted) ceremony.dragOver();
+    });
     addEventListener('dragleave', () => ceremony.dragLeave());
     addEventListener('drop', e => {
       e.preventDefault();
@@ -327,6 +331,7 @@ async function boot() {
 
     incense.density = act.includes('incense-thick') ? 2.2 : 1;
     incense.update(dt, t);
+    director.update(t);
 
     const god = layers.get('god');
     if (god) {

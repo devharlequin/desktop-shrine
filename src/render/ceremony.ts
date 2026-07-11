@@ -24,7 +24,7 @@ export class CeremonyDirector {
     this.bundle.position.copy(SPOTS.plate).add(new THREE.Vector3(0, 2, 1));
     // additive warm glow over the plate during drag-over ("here")
     this.plateGlow = new THREE.Mesh(
-      new THREE.PlaneGeometry(16, 8),
+      new THREE.PlaneGeometry(26, 12),
       new THREE.MeshBasicMaterial({
         color: 0xffb050, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
       }),
@@ -36,10 +36,19 @@ export class CeremonyDirector {
   private ceremony!: OfferingCeremony;
   bind(c: OfferingCeremony) { this.ceremony = c; }
 
+  /** Call each frame: the plate glow breathes while a gift hovers over the window. */
+  update(t: number) {
+    if (this.ceremony?.state === 'dragover') {
+      const glow = this.plateGlow.material as THREE.MeshBasicMaterial;
+      glow.opacity = 0.35 + 0.25 * Math.sin(t * 5);
+      this.plateGlow.scale.setScalar(1 + 0.12 * Math.sin(t * 5));
+    }
+  }
+
   onState(s: CeremonyState) {
     const mat = this.bundle.material as THREE.MeshLambertMaterial;
     const glow = this.plateGlow.material as THREE.MeshBasicMaterial;
-    if (s === 'dragover') { this.dim = 0.3; glow.opacity = 0.35; }
+    if (s === 'dragover') { this.dim = 0.35; glow.opacity = 0.5; }
     if (s === 'idle') { this.dim = 0; glow.opacity = 0; mat.opacity = 0; }
     if (s === 'dropped') { this.dim = 0; glow.opacity = 0; mat.opacity = 1; }
     if (s === 'carrying') {
@@ -58,9 +67,10 @@ export class CeremonyDirector {
       if (this.ceremony.state === 'refused') return; // refusal already handled
       (this.bundle.material as THREE.MeshLambertMaterial).opacity = 0; // picked up
       if (this.ceremony.lastResult?.responses.includes('bell')) this.ringBell();
-      this.view.walkTo(SPOTS.stepsBase, SPOTS.sanctum);
+      // up the stairs in front of the shrine, into the dark only at the doorway
+      this.view.walkTo(SPOTS.climb1, SPOTS.climb2, SPOTS.climb3, SPOTS.sanctum);
       this.view.onArrive = () => {
-        this.view.walkTo(SPOTS.stepsBase);
+        this.view.walkTo(SPOTS.climb3, SPOTS.climb2, SPOTS.climb1, SPOTS.stepsBase);
         this.view.onArrive = () => {
           this.brain.endCeremony();
           this.ceremony.animationDone();

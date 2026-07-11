@@ -10,6 +10,11 @@ export const SPOTS = {
   plate: new THREE.Vector3(0, -92, 27),
   sanctum: new THREE.Vector3(0, -18, 9),          // into the dark, for delivering offerings
   sleepSpot: new THREE.Vector3(32, -46, 17),      // curled beside the altar, in candle glow
+  // the stair route: z steps down gradually so he climbs IN FRONT of the shrine
+  // and only passes behind at the doorway itself
+  climb1: new THREE.Vector3(0, -80, 24),
+  climb2: new THREE.Vector3(0, -62, 19),
+  climb3: new THREE.Vector3(0, -40, 14),
   candleL: new THREE.Vector3(-62, -55, 24),
   candleR: new THREE.Vector3(60, -55, 24),
   sweepA: new THREE.Vector3(-80, -95, 26),
@@ -92,7 +97,11 @@ export class ClaudingView {
     this.broom.visible = activity === 'sweeping' || activity === 'tending';
     if (this.busy || activity === 'ceremony') return;
     if (activity === 'sleeping') {
-      if (this.frame !== 'sleep') { this.setFrame('sleep'); this.mesh.position.copy(SPOTS.sleepSpot); }
+      if (this.frame !== 'sleep') {
+        // walk up to bed like an honest spirit — no teleporting
+        this.walkTo(SPOTS.climb1, SPOTS.climb2, SPOTS.sleepSpot);
+        this.onArrive = () => this.setFrame('sleep');
+      }
       return;
     }
     const slot = Math.floor(t);
