@@ -8,14 +8,14 @@ export type Frame = 'idle' | 'step' | 'bow' | 'sleep';
 export const SPOTS = {
   stepsBase: new THREE.Vector3(-30, -100, 26),
   plate: new THREE.Vector3(0, -92, 27),
-  sanctum: new THREE.Vector3(0, -18, 9),          // into the dark, for delivering offerings
-  sleepSpot: new THREE.Vector3(32, -46, 17),      // curled beside the altar, in candle glow
+  doorway: new THREE.Vector3(-30, -38, 13),       // the little door left of the altar
+  sanctum: new THREE.Vector3(-30, -30, 9),        // through the door, into the dark
+  sleepSpot: new THREE.Vector3(32, -46, 17),      // his bed beside the altar, in candle glow
   // the stair route: z stays ABOVE the steps quad (z=20) for the FULL height of
-  // the staircase (steps top edge is y=-52), then ducks behind the altar (z=16)
-  // only once he is standing on the platform
+  // the staircase (steps top edge is y=-52), then crosses the platform to the door
   climb1: new THREE.Vector3(0, -80, 24.5),
   climb2: new THREE.Vector3(0, -50, 21.5),
-  climb3: new THREE.Vector3(0, -40, 14),
+  climb3: new THREE.Vector3(-26, -44, 14),
   candleL: new THREE.Vector3(-62, -55, 24),
   candleR: new THREE.Vector3(60, -55, 24),
   sweepA: new THREE.Vector3(-80, -95, 26),

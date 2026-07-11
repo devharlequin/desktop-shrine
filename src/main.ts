@@ -18,7 +18,8 @@ import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew } from './render/sounds';
+import { mew, isMuted, setMuted } from './render/sounds';
+import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
 // --- dev-only clock override: keys 1..4 = dawn/day/dusk/night, 0 = real time ---
@@ -57,6 +58,19 @@ async function boot() {
   };
   document.body.appendChild(closeBtn);
 
+  // mute toggle beside it, equally quiet about itself
+  const muteBtn = document.createElement('div');
+  const muteGlyph = () => (muteBtn.textContent = isMuted() ? '♪̸' : '♪');
+  muteGlyph();
+  muteBtn.style.cssText =
+    'position:fixed;top:6px;right:34px;font:14px monospace;color:#cfc8e0;' +
+    'opacity:0.18;cursor:pointer;z-index:10;user-select:none;padding:2px 6px;' +
+    'transition:opacity 0.2s';
+  muteBtn.onmouseenter = () => (muteBtn.style.opacity = '0.9');
+  muteBtn.onmouseleave = () => (muteBtn.style.opacity = '0.18');
+  muteBtn.onclick = () => { setMuted(!isMuted()); muteGlyph(); };
+  document.body.appendChild(muteBtn);
+
   const px = new PixelRenderer(canvas);
   const bridge = await makeBridge();
   const { scene, camera, layers } = await buildShrineScene();
@@ -93,6 +107,27 @@ async function boot() {
   const view = new ClaudingView();
   scene.add(view.mesh);
   layers.get('mask_purple')?.removeFromParent(); // he's not scenery anymore — he's the keeper
+
+  // his little doorway (where offerings go), and his bed beside the altar
+  const doorway = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 24),
+    new THREE.MeshLambertMaterial({ map: loadTex('doorway'), transparent: true, alphaTest: 0.01 }),
+  );
+  doorway.position.set(-30, -38, 13);
+  scene.add(doorway);
+  const bed = new THREE.Mesh(
+    new THREE.PlaneGeometry(26, 10),
+    new THREE.MeshLambertMaterial({ map: loadTex('bed'), transparent: true, alphaTest: 0.01 }),
+  );
+  bed.position.set(33, -51, 16.8);
+  scene.add(bed);
+
+  // wind chimes under the eaves
+  const chimes = new Chimes([
+    new THREE.Vector3(-86, 16, 13),
+    new THREE.Vector3(86, 16, 13),
+  ]);
+  scene.add(chimes.group);
 
   const moths = new Moths([candleL, candleR]);
   scene.add(moths.group);
@@ -329,8 +364,10 @@ async function boot() {
     lights.dim = director.dim;
     lights.update(d, t);
 
+    const wind = windAt(t);
     incense.density = act.includes('incense-thick') ? 2.2 : 1;
-    incense.update(dt, t);
+    incense.update(dt, t, wind);
+    chimes.update(t, dt);
     director.update(t);
 
     const god = layers.get('god');
@@ -353,7 +390,7 @@ async function boot() {
     sky.update(d, t);
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
-    critters.update(t, dt);
+    critters.update(t, dt, timeOfDay(d) === 'night');
     falling.update(dt, t);
 
     px.frame(scene, camera);

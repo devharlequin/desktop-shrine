@@ -1,11 +1,22 @@
-/** The shrine's few sounds, all synthesized — no assets, no noise. */
+/** The shrine's few sounds, all synthesized — no assets, no noise.
+ *  Everything respects the mute toggle (persisted). */
 
 let ac: AudioContext | null = null;
 const ctx = () => (ac ??= new AudioContext());
 
-/** A tiny mew for a petted cat: a pitch arc with a soft envelope, slightly
- *  different every time so he never repeats himself. */
+const MUTE_KEY = 'shrine.muted';
+let muted = false;
+try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* no storage */ }
+
+export function isMuted() { return muted; }
+export function setMuted(m: boolean) {
+  muted = m;
+  try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* no storage */ }
+}
+
+/** A tiny mew for a petted cat — slightly different every time. */
 export function mew() {
+  if (muted) return;
   try {
     const a = ctx();
     const o = a.createOscillator();
@@ -26,4 +37,45 @@ export function mew() {
     o.start(t0);
     o.stop(t0 + 0.35);
   } catch { /* audio blocked: the mew stays a thought */ }
+}
+
+/** The temple bell. Rare, soft, single — reserved for the keeper's choice. */
+export function bell() {
+  if (muted) return;
+  try {
+    const a = ctx();
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.frequency.value = 1320;
+    o.connect(g).connect(a.destination);
+    g.gain.setValueAtTime(0.12, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 2.5);
+    o.start();
+    o.stop(a.currentTime + 2.5);
+  } catch { /* the bell stays a thought */ }
+}
+
+const CHIME_NOTES = [1567.98, 1760.0, 2093.0, 2349.32, 2637.02]; // high pentatonic
+
+/** A cluster of 2-4 soft glassy notes when the wind finds the chimes. */
+export function chimeTinkle(strength = 1) {
+  if (muted) return;
+  try {
+    const a = ctx();
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const o = a.createOscillator();
+      const g = a.createGain();
+      o.type = 'sine';
+      o.frequency.value = CHIME_NOTES[Math.floor(Math.random() * CHIME_NOTES.length)];
+      const t0 = a.currentTime + i * (0.06 + Math.random() * 0.12);
+      const vol = (0.015 + Math.random() * 0.02) * Math.min(1, strength);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+      o.connect(g).connect(a.destination);
+      o.start(t0);
+      o.stop(t0 + 1.2);
+    }
+  } catch { /* the wind stays silent */ }
 }

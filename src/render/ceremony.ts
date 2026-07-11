@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { OfferingCeremony, CeremonyState } from '../core/offering';
 import { ClaudingView, SPOTS } from './claudingView';
 import type { ClaudingBrain } from '../core/clauding';
+import { bell } from './sounds';
 
 const BOW_MS = 2600;
 const BOW_LINGER_MS = 5200;
@@ -66,7 +67,7 @@ export class CeremonyDirector {
     setTimeout(() => {
       if (this.ceremony.state === 'refused') return; // refusal already handled
       (this.bundle.material as THREE.MeshLambertMaterial).opacity = 0; // picked up
-      if (this.ceremony.lastResult?.responses.includes('bell')) this.ringBell();
+      if (this.ceremony.lastResult?.responses.includes('bell')) bell();
       // up the stairs in front of the shrine, into the dark only at the doorway
       this.view.walkTo(SPOTS.climb1, SPOTS.climb2, SPOTS.climb3, SPOTS.sanctum);
       this.view.onArrive = () => {
@@ -94,18 +95,4 @@ export class CeremonyDirector {
     }, 100);
   }
 
-  /** The only sound in the entire app. Soft, single, no repeat. */
-  private ringBell() {
-    try {
-      const ac = new AudioContext();
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.frequency.value = 1320;
-      o.connect(g).connect(ac.destination);
-      g.gain.setValueAtTime(0.12, ac.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.5);
-      o.start();
-      o.stop(ac.currentTime + 2.5);
-    } catch { /* audio blocked: the bell stays a thought */ }
-  }
 }

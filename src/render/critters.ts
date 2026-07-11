@@ -8,7 +8,7 @@ interface Critter {
   kind: CritterKind;
   home: THREE.Vector3;
   range: number;         // how far from home it may wander (x)
-  mode: 'idle' | 'walk' | 'hop' | 'slump' | 'petted';
+  mode: 'idle' | 'walk' | 'hop' | 'slump' | 'petted' | 'trek' | 'cuddle';
   slumpUntil: number;
   targetX: number;
   nextAt: number;        // t when the next action may begin
@@ -16,7 +16,17 @@ interface Critter {
   facing: number;        // 1 | -1
   /** something precious carried overhead; set down while resting */
   item?: THREE.Mesh;
+  /** waypoint queue for multi-leg journeys (the cat's bedtime pilgrimage) */
+  waypoints: THREE.Vector3[];
+  cuddling: boolean;     // reached the keeper's bedside tonight
 }
+
+/** The cat's route up to the keeper's bedside (and back down at dawn). */
+const BEDSIDE_ROUTE = [
+  new THREE.Vector3(-5, -88, 24.6),
+  new THREE.Vector3(25, -60, 21.6),
+  new THREE.Vector3(47, -49, 17.2),
+];
 
 /** The garden's small residents: the cat wanders and lounges, the masked
  *  spirits hop and look around. Sparse by design — mostly they are still. */
@@ -34,6 +44,7 @@ export class Critters {
         c.mode = 'petted';
         c.hopStart = t;
         c.slumpUntil = t + 2.6;
+        c.mesh.userData.petBaseY = d.y; // pet him wherever he is — even at the bedside
         this.spawnHeart(d, t);
         return true;
       }
@@ -69,10 +80,12 @@ export class Critters {
       facing: 1,
       slumpUntil: 0,
       item,
+      waypoints: [],
+      cuddling: false,
     });
   }
 
-  update(t: number, dt: number) {
+  update(t: number, dt: number, night = false) {
     for (const h of [...this.floating]) {
       const age = t - h.born;
       h.m.position.y += 6 * dt;
@@ -99,9 +112,47 @@ export class Critters {
           c.item.rotation.z = 0;
         }
       }
+      // the cat's bedtime: at night it climbs to the keeper's bedside; at dawn it comes home
+      if (c.kind === 'cat' && c.mode === 'idle' && t >= c.nextAt) {
+        if (night && !c.cuddling) {
+          c.mode = 'trek';
+          c.waypoints = [...BEDSIDE_ROUTE];
+        } else if (!night && c.cuddling) {
+          c.mode = 'trek';
+          c.waypoints = [...BEDSIDE_ROUTE].reverse().slice(1).concat([c.home.clone()]);
+          c.cuddling = false;
+        }
+      }
+      if (c.mode === 'trek') {
+        const wp = c.waypoints[0];
+        if (!wp) {
+          if (night) { c.mode = 'cuddle'; c.cuddling = true; this.spawnHeart(c.mesh.position, t); }
+          else { c.mode = 'idle'; c.nextAt = t + 10 + Math.random() * 20; }
+          continue;
+        }
+        const d = wp.clone().sub(c.mesh.position);
+        const step = 9 * dt;
+        if (d.length() <= step) {
+          c.mesh.position.copy(wp);
+          c.waypoints.shift();
+        } else {
+          if (Math.abs(d.x) > 0.5) {
+            c.facing = d.x < 0 ? -1 : 1;
+            c.mesh.scale.x = Math.abs(c.mesh.scale.x) * c.facing;
+          }
+          c.mesh.position.add(d.setLength(step));
+        }
+        continue;
+      }
+      if (c.mode === 'cuddle') {
+        if (!night) { c.nextAt = t; c.mode = 'idle'; continue; } // dawn: idle will start the trek home
+        c.mesh.scale.y = 1 - 0.04 * Math.abs(Math.sin(t * 1.1)); // slow sleepy breathing
+        continue;
+      }
       if (c.mode === 'idle') {
         if (t < c.nextAt) continue;
         if (c.kind === 'cat') {
+          if (night) continue; // handled above
           c.mode = 'walk';
           c.targetX = c.home.x + (Math.random() * 2 - 1) * c.range;
         } else {
@@ -141,16 +192,17 @@ export class Critters {
           c.mesh.position.y = c.home.y + Math.abs(Math.sin(t * 7)) * 0.6; // soft amble
         }
       } else if (c.mode === 'petted') {
+        const baseY = (c.mesh.userData.petBaseY as number) ?? c.home.y;
         if (t >= c.slumpUntil) {
           c.mesh.scale.y = 1;
-          c.mesh.position.y = c.home.y;
-          c.mode = 'idle';
+          c.mesh.position.y = baseY;
+          c.mode = c.cuddling ? 'cuddle' : 'idle';
           c.nextAt = t + 8 + Math.random() * 20;
         } else {
           // a happy little squish-and-lean-in
           const k = t - c.hopStart;
           c.mesh.scale.y = 1 - 0.1 * Math.abs(Math.sin(k * 6));
-          c.mesh.position.y = c.home.y + Math.abs(Math.sin(k * 6)) * 0.8;
+          c.mesh.position.y = baseY + Math.abs(Math.sin(k * 6)) * 0.8;
         }
       } else if (c.mode === 'slump') {
         if (t >= c.slumpUntil) {

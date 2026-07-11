@@ -17,13 +17,13 @@ export class Incense {
     }
   }
 
-  update(dt: number, t: number) {
+  update(dt: number, t: number, wind = 0) {
     for (const p of this.puffs) {
       p.age += dt * this.density;
       if (p.age > p.life) { p.age = 0; p.seed = Math.random() * 10; }
       const k = p.age / p.life;
       p.m.position.set(
-        this.origin.x + Math.sin(t * 0.6 + p.seed) * (2 + k * 8),
+        this.origin.x + Math.sin(t * 0.6 + p.seed) * (2 + k * 8) + wind * k * 14, // the wind leans the ribbon
         this.origin.y + k * 55,
         this.origin.z + 1,
       );
