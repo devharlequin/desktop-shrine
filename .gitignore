@@ -2,3 +2,11 @@ node_modules/
 dist/
 src-tauri/target/
 tools/_grid.png
+tools/_shot*.png
+tools/_tauri_dev.log
+tools/_test/
+tools/_stone*.png
+tools/_creatures.png
+tools/_clauding_zoom.png
+tools/_day.png
+tools/_shot_b64.txt
