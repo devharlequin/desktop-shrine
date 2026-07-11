@@ -20,6 +20,7 @@ import {
 } from './core/garden';
 import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
+import { BlueSpirit } from './render/blueSpirit';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -187,6 +188,11 @@ async function boot() {
   critters.add(layers.get('mask_orange'), 'mask', 8, bundle);
   scene.add(critters.hearts);
 
+  // a little guy of my own — the blue spirit who loves the rain and the stars.
+  // he stands in the right of the yard; greet him with a click. — Opus
+  const blueSpirit = new BlueSpirit(new THREE.Vector3(76, -104, 31));
+  scene.add(blueSpirit.group);
+
   // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
     new THREE.PlaneGeometry(TREE.w, TREE.h),
@@ -303,6 +309,7 @@ async function boot() {
   canvas.addEventListener('pointerdown', e => {
     const p = toVirtual(e);
     if (critters.petAt(toScene(p), performance.now() / 1000)) { mew(); return; } // pet > chores
+    if (blueSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the blue spirit
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
     if (g === 'rake') liveStroke = { points: [p], t: Date.now() };
     if (g === 'sweep') {
@@ -443,6 +450,7 @@ async function boot() {
     clouds.update(dt, t, ambientPlaying('rain'));
     rainFx.update(dt, t, ambientPlaying('rain'));
     windWisps.update(dt, t, ambientPlaying('wind'));
+    blueSpirit.update(dt, t, ambientPlaying('rain'), timeOfDay(d) === 'night');
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);
