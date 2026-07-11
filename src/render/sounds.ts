@@ -67,20 +67,45 @@ function buildAmbient(a: AudioContext, kind: Ambient) {
   lfo.type = 'sine';
 
   if (kind === 'rain') {
-    // steady patter: noise held between two filters, barely breathing
+    // a soft dark bed underneath — distant rain, not static
     const hp = a.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = 500;
+    hp.frequency.value = 300;
     const lp = a.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 2600;
+    lp.frequency.value = 1400;
     lfo.frequency.value = 0.11;
-    lfoGain.gain.value = 300; // the rain leans a little, now and then
+    lfoGain.gain.value = 250; // the rain leans a little, now and then
     lfo.connect(lfoGain).connect(lp.frequency);
-    src.connect(hp).connect(lp).connect(gain).connect(a.destination);
+    const bed = a.createGain();
+    bed.gain.value = 0.55; // the bed sits under the patter
+    src.connect(hp).connect(lp).connect(bed).connect(gain).connect(a.destination);
     src.start();
     lfo.start();
-    return { gain, vol: 0.05, stop: () => { src.stop(); lfo.stop(); } };
+    // the patter itself: small plips scattered irregularly over the bed,
+    // each a tiny falling blip like a drop finding the eaves
+    let alive = true;
+    const drop = () => {
+      if (!alive) return;
+      try {
+        const o = a.createOscillator();
+        const g = a.createGain();
+        o.type = 'sine';
+        const f0 = 650 + Math.random() * 1900;
+        const t0 = a.currentTime;
+        o.frequency.setValueAtTime(f0, t0);
+        o.frequency.exponentialRampToValueAtTime(f0 * 0.4, t0 + 0.045);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.2 + Math.random() * 0.5, t0 + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.045 + Math.random() * 0.07);
+        o.connect(g).connect(gain); // through the master, so mute/fades carry it
+        o.start(t0);
+        o.stop(t0 + 0.14);
+      } catch { /* one drop missed */ }
+      setTimeout(drop, 35 + Math.random() * 170);
+    };
+    setTimeout(drop, 300);
+    return { gain, vol: 0.055, stop: () => { alive = false; src.stop(); lfo.stop(); } };
   }
 
   // wind: low rounded noise with slow gusts wandering the filter
@@ -96,6 +121,9 @@ function buildAmbient(a: AudioContext, kind: Ambient) {
   lfo.start();
   return { gain, vol: 0.09, stop: () => { src.stop(); lfo.stop(); } };
 }
+
+/** Whether an ambient loop is actually running (for the visuals to follow). */
+export function ambientPlaying(k: Ambient) { return !!ambients[k]; }
 
 export function isAmbientOn(k: Ambient) {
   try { return localStorage.getItem(AMB_KEY(k)) === '1'; } catch { return !!ambients[k]; }

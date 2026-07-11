@@ -18,7 +18,8 @@ import {
   activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
   tickWeathering, treeScale, type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients } from './render/sounds';
+import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
+import { RainFx, WindWisps } from './render/weatherFx';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -210,6 +211,12 @@ async function boot() {
 
   const falling = new FallingLeaves();
   scene.add(falling.group);
+
+  // the visible weather, following the ambient murmurs
+  const rainFx = new RainFx();
+  scene.add(rainFx.group);
+  const windWisps = new WindWisps();
+  scene.add(windWisps.group);
   falling.onLand = p => {
     garden = spawnLeaf(garden, p, Date.now());
     leaves.sync(garden);
@@ -372,6 +379,10 @@ async function boot() {
             DEV_HOUR = c.slice(5) === 'null' ? null : Number(c.slice(5));
           } else if (c === 'leaf') {
             falling.release(performance.now() / 1000);
+          } else if (c.startsWith('rain:')) {
+            setAmbient('rain', c.slice(5) === '1');
+          } else if (c.startsWith('wind:')) {
+            setAmbient('wind', c.slice(5) === '1');
           }
         }
       } catch { /* dev server gone */ }
@@ -427,6 +438,8 @@ async function boot() {
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
     critters.update(t, dt, timeOfDay(d) === 'night');
     falling.update(dt, t);
+    rainFx.update(dt, t, ambientPlaying('rain'));
+    windWisps.update(dt, t, ambientPlaying('wind'));
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);
