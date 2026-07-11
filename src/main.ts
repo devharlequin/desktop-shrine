@@ -527,7 +527,7 @@ async function boot() {
     // the tree leans with the wind — rotated about its center, then shifted so
     // the roots stay planted (small-angle pivot at the base)
     treeSway += ((ambientPlaying('wind') ? 1 : 0) - treeSway) * Math.min(1, dt * 1.2);
-    const lean = treeSway * (wind * 0.026 + Math.sin(t * 2.7) * 0.007);
+    const lean = treeSway * (wind * 0.045 + Math.sin(t * 2.7) * 0.010);
     tree.rotation.z = lean;
     tree.position.x = TREE.x - Math.sin(lean) * (TREE.h * treeK) / 2;
 

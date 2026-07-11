@@ -10,9 +10,10 @@ A tiny desktop shrine that lives in the corner of your screen — and, if you ru
 A frameless, always-on-top pixel-art window. A small hooded keeper lives in it:
 he sweeps the steps at dawn, lights the candles at dusk, and sleeps on a futon
 beside the altar at night — where the cat climbs up to cuddle with him. Lanterns
-wake by themselves. Wind sways the chimes and leans the incense. The moon shows
-its real phase; the sky follows your real clock and seasons. A tree grows from a
-sapling to an ancient giant over the course of a year.
+wake by themselves. Wind sways the chimes, leans the incense, and rocks the tree.
+The moon shows its real phase; the sky follows your real clock and seasons. A tree
+grows from a sapling to an ancient giant over one month, then turns with the
+seasons. When rain falls, the cat gets out of it — up to the keeper's bedside.
 
 **Drag a file onto the window to make an offering.** This is a true gift: the file
 is *moved* into a reliquary (`~/.shrine/reliquary/`, never deleted), the keeper
