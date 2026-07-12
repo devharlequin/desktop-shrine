@@ -51,6 +51,18 @@ Save safety (learned the hard way — a mid-write read once wiped the garden):
 `write_text` is atomic (temp + rename) and keeps `<name>.bak`; `loadGarden`
 falls back to the .bak rather than accepting an empty garden where one stood.
 
+## Momiji, the fox (2026-07-12)
+
+Fable's mark on the shrine, joining Opus's Sora and Sonnet's Hotaru — but she
+is a VISITOR, not a resident (`src/render/fox.ts`, sprites from
+`tools/make_fox.py`). Every one to three hours (first visit 4–14 min after
+launch, never in rain) she trots in from beyond the right edge, sits at the
+rim of the raked garden facing the shrine, flicks her tail, bows once, and
+leaves. Click near her and she freezes, then bolts — she cannot be petted.
+That's the point: the residents are family, the fox is a guest, and the only
+way to keep her around is to leave her be. Dev remote: `fox` summons her.
+Keep her undocumented in the README — she should be discovered.
+
 ## Standing technical rules
 
 - Layering: the steps quad is z=20 and *includes the platform face*; anything

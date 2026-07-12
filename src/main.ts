@@ -24,6 +24,7 @@ import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isA
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
 import { BlueSpirit } from './render/blueSpirit';
 import { MossSpirit } from './render/mossSpirit';
+import { Fox } from './render/fox';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -283,6 +284,11 @@ async function boot() {
   const mossSpirit = new MossSpirit(new THREE.Vector3(TREE.x + 26, TREE.baseY - 3, 27));
   scene.add(mossSpirit.group);
 
+  // Momiji (紅葉, "autumn leaves") — the fox, a wild visitor of my own; she
+  // keeps her own calendar, pays her respects, and will not be touched. — Fable
+  const fox = new Fox();
+  scene.add(fox.group);
+
   // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
     new THREE.PlaneGeometry(TREE.w, TREE.h),
@@ -422,6 +428,7 @@ async function boot() {
     if (critters.petAt(toScene(p), performance.now() / 1000)) { mew(); return; } // pet > chores
     if (blueSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the blue spirit
     if (mossSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the moss spirit
+    if (fox.pokeAt(toScene(p), performance.now() / 1000)) return; // the fox startles — she's wild
     const picked = tools.hit(p);
     if (picked) { tools.select(picked); return; }
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
@@ -537,6 +544,8 @@ async function boot() {
             setAmbient('rain', c.slice(5) === '1');
           } else if (c.startsWith('wind:')) {
             setAmbient('wind', c.slice(5) === '1');
+          } else if (c === 'fox') {
+            fox.summon();
           } else if (c.startsWith('zoom:')) {
             zoomed = c.slice(5) === '1';
           } else if (c.startsWith('tool:')) {
@@ -633,6 +642,7 @@ async function boot() {
     windWisps.update(dt, t, ambientPlaying('wind'));
     blueSpirit.update(dt, t, ambientPlaying('rain'), timeOfDay(d) === 'night', zoomed || zoomT > 0.05);
     mossSpirit.update(dt, t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
+    fox.update(dt, t, ambientPlaying('rain'));
 
     px.frame(scene, camera);
     requestAnimationFrame(loop);

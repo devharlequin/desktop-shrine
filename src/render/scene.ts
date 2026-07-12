@@ -73,7 +73,7 @@ export async function buildShrineScene(): Promise<ShrineScene> {
   const scene = new THREE.Scene();
   const camera = makeCamera();
   const manifest = await loadManifest();
-  await preloadTextures([...Object.keys(manifest).filter(n => n !== 'sky' && n !== 'stars'), 'broom', 'tree', 'heart', 'bow', 'doorway', 'bed', 'chime', 'cloud1', 'cloud2', 'cloud3', 'spirit_blue', 'twinkle', 'spirit_moss', 'firefly_glow']);
+  await preloadTextures([...Object.keys(manifest).filter(n => n !== 'sky' && n !== 'stars'), 'broom', 'tree', 'heart', 'bow', 'doorway', 'bed', 'chime', 'cloud1', 'cloud2', 'cloud3', 'spirit_blue', 'twinkle', 'spirit_moss', 'firefly_glow', 'fox_trot', 'fox_sit']);
   const layers = new Map<string, THREE.Mesh>();
   for (const [name, e] of Object.entries(manifest)) {
     if (name === 'sky' || name === 'stars') continue; // sky is generated, not sliced
