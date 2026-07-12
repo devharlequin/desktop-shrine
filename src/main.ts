@@ -20,7 +20,7 @@ import {
   sweepLeavesNear, tickWeathering, treeMature, treeScale,
   type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
-import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
+import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying, startScrape, scrapeMove, endScrape, sandPress } from './render/sounds';
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
 import { BlueSpirit } from './render/blueSpirit';
 import { MossSpirit } from './render/mossSpirit';
@@ -435,13 +435,17 @@ async function boot() {
       if (tools.current === 'ring') {
         garden = addRakeStroke(garden, { points: [p], t: Date.now(), tool: 'ring' });
         sand.redraw(garden, Date.now());
+        sandPress();
         void save();
       } else if (tools.current === 'smooth') {
         garden = eraseStrokesNear(garden, p, 4);
         smoothed = true;
         sand.redraw(garden, Date.now());
+        startScrape('smooth');
+        scrapeMove(0.3); // even a single press whispers
       } else {
         liveStroke = { points: [p], t: Date.now(), tool: tools.current };
+        startScrape(tools.current);
       }
       return;
     }
@@ -451,12 +455,14 @@ async function boot() {
     const p = toVirtual(e);
     if (liveStroke) {
       const lastP = liveStroke.points[liveStroke.points.length - 1];
-      if (Math.hypot(p.x - lastP.x, p.y - lastP.y) >= 2 / viewNow.z) {
+      const dist = Math.hypot(p.x - lastP.x, p.y - lastP.y);
+      if (dist >= 2 / viewNow.z) {
         // clamp to the sand bed
         p.x = Math.min(Math.max(p.x, SAND_RECT.x + 1), SAND_RECT.x + SAND_RECT.w - 1);
         p.y = Math.min(Math.max(p.y, SAND_RECT.y + 1), SAND_RECT.y + SAND_RECT.h - 1);
         liveStroke.points.push(p);
         sand.redraw(garden, Date.now(), liveStroke);
+        scrapeMove(Math.min(1, (dist * viewNow.z) / 10)); // the pull, audible
       }
       canvas.style.cursor = CURSOR_RAKE;
       return;
@@ -470,6 +476,7 @@ async function boot() {
         garden = eraseStrokesNear(garden, p, 4);
         smoothed = true;
         sand.redraw(garden, Date.now());
+        scrapeMove(0.5);
       }
     }
     canvas.style.cursor = critters.catAt(toScene(p))
@@ -478,6 +485,7 @@ async function boot() {
       : classifyGesture(p, SAND_RECT, garden.leaves) === 'none' ? 'default' : CURSOR_RAKE;
   });
   const endStroke = () => {
+    endScrape(); // the tool lifts off the sand
     if (liveStroke && liveStroke.points.length > 1) {
       garden = addRakeStroke(garden, liveStroke);
       void save();

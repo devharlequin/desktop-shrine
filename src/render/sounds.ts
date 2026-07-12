@@ -167,6 +167,112 @@ export function resumeAmbients() {
   } catch { /* the weather waits */ }
 }
 
+// ---------------------------------------------------------------------------
+// Sand sounds: the rake's hiss and the grains it turns over — the part of a
+// zen garden you hear. A continuous scrape follows the hand; tiny dry ticks
+// are single grains tumbling. Each tool moves a different amount of sand.
+// ---------------------------------------------------------------------------
+
+type ScrapeKind = 'rake' | 'wide' | 'point' | 'smooth';
+const SCRAPE: Record<ScrapeKind, { band: number; q: number; vol: number; grains: number }> = {
+  rake:   { band: 2400, q: 0.9, vol: 0.055, grains: 2 }, // three tines, a dry hiss
+  wide:   { band: 1700, q: 0.8, vol: 0.075, grains: 3 }, // moves the most sand
+  point:  { band: 3200, q: 1.4, vol: 0.040, grains: 1 }, // one thin bright line
+  smooth: { band: 1100, q: 0.7, vol: 0.050, grains: 1 }, // a soft low shush
+};
+
+let scrape: { src: AudioBufferSourceNode; bp: BiquadFilterNode; g: GainNode; kind: ScrapeKind } | null = null;
+
+/** A single dry grain of sand turning over. */
+function grainTick(a: AudioContext, k: number) {
+  const g = noiseSource(a);
+  const bp = a.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2800 + Math.random() * 3200;
+  bp.Q.value = 2.5;
+  const env = a.createGain();
+  const t0 = a.currentTime + Math.random() * 0.03;
+  const dur = 0.004 + Math.random() * 0.009;
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(0.05 + 0.11 * k * Math.random(), t0 + 0.001);
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  g.connect(bp).connect(env).connect(a.destination);
+  g.start(t0, Math.random() * 1.8);
+  g.stop(t0 + dur + 0.02);
+}
+
+/** The tool touches the sand. Call before the stroke's first movement. */
+export function startScrape(kind: ScrapeKind) {
+  if (muted) return;
+  try {
+    const a = ctx();
+    if (a.state === 'suspended') void a.resume();
+    endScrape();
+    const src = noiseSource(a);
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass';
+    const c = SCRAPE[kind];
+    bp.frequency.value = c.band;
+    bp.Q.value = c.q;
+    const g = a.createGain();
+    g.gain.value = 0.0001;
+    src.connect(bp).connect(g).connect(a.destination);
+    src.start(0, Math.random() * 1.8);
+    scrape = { src, bp, g, kind };
+  } catch { /* the sand stays quiet */ }
+}
+
+/** Call on each drawing movement; speed 0..1 drives loudness and brightness.
+ *  The scrape swells with the pull and dies as soon as the hand rests. */
+export function scrapeMove(speed: number) {
+  if (!scrape || muted) return;
+  try {
+    const a = ctx();
+    const c = SCRAPE[scrape.kind];
+    const k = Math.min(1, Math.max(0.15, speed));
+    const t = a.currentTime;
+    scrape.g.gain.cancelScheduledValues(t);
+    scrape.g.gain.setTargetAtTime(c.vol * k, t, 0.025);
+    scrape.g.gain.setTargetAtTime(0.0001, t + 0.09, 0.06);
+    scrape.bp.frequency.setTargetAtTime(c.band * (0.9 + 0.25 * k + Math.random() * 0.1), t, 0.05);
+    for (let i = 0; i < c.grains; i++) if (Math.random() < 0.5 + k * 0.5) grainTick(a, k);
+  } catch { /* quiet sand */ }
+}
+
+/** The tool lifts off the sand. */
+export function endScrape() {
+  if (!scrape) return;
+  const s = scrape;
+  scrape = null;
+  try {
+    rampTo(s.g, 0, 0.12);
+    setTimeout(() => { try { s.src.stop(); } catch { /* gone */ } }, 250);
+  } catch { /* gone */ }
+}
+
+/** The ring stamp pressed into the sand — one soft crunch. */
+export function sandPress() {
+  if (muted) return;
+  try {
+    const a = ctx();
+    if (a.state === 'suspended') void a.resume();
+    const src = noiseSource(a);
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1500;
+    bp.Q.value = 0.8;
+    const g = a.createGain();
+    const t0 = a.currentTime;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    src.connect(bp).connect(g).connect(a.destination);
+    src.start(t0, Math.random() * 1.8);
+    src.stop(t0 + 0.2);
+    for (let i = 0; i < 4; i++) grainTick(a, 0.7);
+  } catch { /* pressed in silence */ }
+}
+
 /** A tiny mew for a petted cat — slightly different every time. */
 export function mew() {
   if (muted) return;

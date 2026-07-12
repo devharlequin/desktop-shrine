@@ -42,6 +42,10 @@ Esc, steps back. While zoomed:
 - Pointer→virtual mapping goes through `viewNow` — anything that reads the
   mouse must use it, or clicks land in the wrong place while zoomed.
 - Window drag-by-sky is gated off while zoomed.
+- The sand is audible (sounds.ts): a synthesized scrape (band-passed noise)
+  follows hand speed via startScrape/scrapeMove/endScrape, with dry grain
+  ticks; each tool has its own band/volume (`SCRAPE`); the ring stamp is a
+  one-shot `sandPress()`. All of it respects the ♪ mute.
 
 Save safety (learned the hard way — a mid-write read once wiped the garden):
 `write_text` is atomic (temp + rename) and keeps `<name>.bak`; `loadGarden`
