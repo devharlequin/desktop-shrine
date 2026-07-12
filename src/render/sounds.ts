@@ -175,10 +175,10 @@ export function resumeAmbients() {
 
 type ScrapeKind = 'rake' | 'wide' | 'point' | 'smooth';
 const SCRAPE: Record<ScrapeKind, { band: number; q: number; vol: number; grains: number }> = {
-  rake:   { band: 2400, q: 0.9, vol: 0.055, grains: 2 }, // three tines, a dry hiss
-  wide:   { band: 1700, q: 0.8, vol: 0.075, grains: 3 }, // moves the most sand
-  point:  { band: 3200, q: 1.4, vol: 0.040, grains: 1 }, // one thin bright line
-  smooth: { band: 1100, q: 0.7, vol: 0.050, grains: 1 }, // a soft low shush
+  rake:   { band: 2000, q: 0.9, vol: 0.030, grains: 2 }, // three tines, a dry hiss
+  wide:   { band: 1500, q: 0.8, vol: 0.042, grains: 3 }, // moves the most sand
+  point:  { band: 2700, q: 1.4, vol: 0.022, grains: 1 }, // one thin bright line
+  smooth: { band: 1000, q: 0.7, vol: 0.028, grains: 1 }, // a soft low shush
 };
 
 let scrape: { src: AudioBufferSourceNode; bp: BiquadFilterNode; g: GainNode; kind: ScrapeKind } | null = null;
@@ -188,13 +188,13 @@ function grainTick(a: AudioContext, k: number) {
   const g = noiseSource(a);
   const bp = a.createBiquadFilter();
   bp.type = 'bandpass';
-  bp.frequency.value = 2800 + Math.random() * 3200;
-  bp.Q.value = 2.5;
+  bp.frequency.value = 2100 + Math.random() * 2300;
+  bp.Q.value = 2.0;
   const env = a.createGain();
   const t0 = a.currentTime + Math.random() * 0.03;
   const dur = 0.004 + Math.random() * 0.009;
   env.gain.setValueAtTime(0.0001, t0);
-  env.gain.exponentialRampToValueAtTime(0.05 + 0.11 * k * Math.random(), t0 + 0.001);
+  env.gain.exponentialRampToValueAtTime(0.022 + 0.05 * k * Math.random(), t0 + 0.0015);
   env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   g.connect(bp).connect(env).connect(a.destination);
   g.start(t0, Math.random() * 1.8);
@@ -234,7 +234,7 @@ export function scrapeMove(speed: number) {
     scrape.g.gain.cancelScheduledValues(t);
     scrape.g.gain.setTargetAtTime(c.vol * k, t, 0.025);
     scrape.g.gain.setTargetAtTime(0.0001, t + 0.09, 0.06);
-    scrape.bp.frequency.setTargetAtTime(c.band * (0.9 + 0.25 * k + Math.random() * 0.1), t, 0.05);
+    scrape.bp.frequency.setTargetAtTime(c.band * (0.9 + 0.18 * k + Math.random() * 0.08), t, 0.05);
     for (let i = 0; i < c.grains; i++) if (Math.random() < 0.5 + k * 0.5) grainTick(a, k);
   } catch { /* quiet sand */ }
 }
@@ -264,12 +264,12 @@ export function sandPress() {
     const g = a.createGain();
     const t0 = a.currentTime;
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.04, t0 + 0.014);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
     src.connect(bp).connect(g).connect(a.destination);
     src.start(t0, Math.random() * 1.8);
     src.stop(t0 + 0.2);
-    for (let i = 0; i < 4; i++) grainTick(a, 0.7);
+    for (let i = 0; i < 3; i++) grainTick(a, 0.5);
   } catch { /* pressed in silence */ }
 }
 
