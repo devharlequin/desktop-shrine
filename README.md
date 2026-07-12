@@ -26,7 +26,10 @@ at you, a resident firefly for an evening — and, rarely, for offerings that tr
 warrant it, the bell.
 
 You can also:
-- **rake the sand** garden (your patterns persist; only you may erase them)
+- **rake the sand** garden — click it and the view leans in close; tools rest
+  on the ground beside it (two rakes, a pointed stick, a ring stamp, and a
+  smoothing board for starting over). Your patterns persist; only you may
+  erase them. Click anywhere else, or press Esc, to step back.
 - **sweep the leaves** that fall from the tree
 - **pet the cat** (he mews)
 

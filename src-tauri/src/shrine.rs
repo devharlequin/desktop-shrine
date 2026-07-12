@@ -95,10 +95,23 @@ pub fn read_text(path: String) -> Result<String, String> {
     fs::read_to_string(config_path(&path)).map_err(|e| e.to_string())
 }
 
+/// Atomic: write a sibling temp file, then rename it over the target, so a
+/// reader can never see a half-written file. The previous contents are kept
+/// as `<name>.bak` — one step of undo if a save ever goes wrong.
 #[tauri::command]
 pub fn write_text(path: String, content: String) -> Result<(), String> {
     fs::create_dir_all(shrine_dir()).map_err(|e| e.to_string())?;
-    fs::write(config_path(&path), content).map_err(|e| e.to_string())
+    let dest = config_path(&path);
+    if dest.exists() {
+        let mut bak = dest.clone().into_os_string();
+        bak.push(".bak");
+        let _ = fs::copy(&dest, PathBuf::from(bak));
+    }
+    let mut tmp = dest.clone().into_os_string();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &dest).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

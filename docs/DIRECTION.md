@@ -24,6 +24,29 @@ and each other — welcome, no permission needed. What still stands:
 - **Tranquil, not busy.** Movement should read as a garden being alive,
   not a screensaver demanding attention.
 
+## The garden close-up (2026-07-12)
+
+Clicking the sand bed glides the orthographic camera into a 4× close-up
+(`GARDEN_VIEW` in main.ts, framed on `SAND_RECT`); clicking anywhere else, or
+Esc, steps back. While zoomed:
+
+- The sand quad swaps to a 4×-resolution canvas (`SandPatch.setZoomed`) so
+  grooves drawn up close keep sub-pixel detail; the far view keeps the
+  original 1× texture, exactly as before.
+- A tool rack (`sandTools.ts`, z=32, row at virtual y=207) fades in on the
+  ground above the bed: rake, wide rake, pointed stick, ring stamp, smoothing
+  board (a local eraser — `eraseStrokesNear` splits strokes where it presses).
+  Strokes remember their tool (`RakeStroke.tool`; old saves read as 'rake').
+- Sora steps politely off the sand (his home stands on it) and watches from
+  its edge; he returns when you step back.
+- Pointer→virtual mapping goes through `viewNow` — anything that reads the
+  mouse must use it, or clicks land in the wrong place while zoomed.
+- Window drag-by-sky is gated off while zoomed.
+
+Save safety (learned the hard way — a mid-write read once wiped the garden):
+`write_text` is atomic (temp + rename) and keeps `<name>.bak`; `loadGarden`
+falls back to the .bak rather than accepting an empty garden where one stood.
+
 ## Standing technical rules
 
 - Layering: the steps quad is z=20 and *includes the platform face*; anything

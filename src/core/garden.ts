@@ -4,7 +4,9 @@ export const RESPONSE_IDS: ResponseId[] = ['bow-lingered', 'candles-brighter',
   'incense-thick', 'god-eyes-glow', 'firefly', 'bell'];
 
 export interface RakePoint { x: number; y: number }
-export interface RakeStroke { points: RakePoint[]; t: number }
+/** What drew a stroke. Old saves have no tool field — they read as 'rake'. */
+export type SandTool = 'rake' | 'wide' | 'point' | 'ring';
+export interface RakeStroke { points: RakePoint[]; t: number; tool?: SandTool }
 export interface Leaf { x: number; y: number; t: number; kind: number }
 export interface ActiveResponse { id: ResponseId; until: number }
 
@@ -63,6 +65,30 @@ export function activeResponses(g: Garden, now: number): ResponseId[] {
 
 export function addRakeStroke(g: Garden, s: RakeStroke): Garden {
   return { ...g, rakeStrokes: [...g.rakeStrokes, s] };
+}
+
+/** Radius the ring stamp occupies on the sand (its outer groove). */
+export const RING_RADIUS = 8;
+
+/** The smoothing board: press the sand flat near p. Strokes are split where
+ *  erased, so smoothing the middle of a line leaves both ends standing. */
+export function eraseStrokesNear(g: Garden, p: RakePoint, radius: number): Garden {
+  const kept: RakeStroke[] = [];
+  for (const s of g.rakeStrokes) {
+    if (s.tool === 'ring') {
+      const c = s.points[0];
+      if (Math.hypot(c.x - p.x, c.y - p.y) > radius + RING_RADIUS) kept.push(s);
+      continue;
+    }
+    let run: RakePoint[] = [];
+    const flush = () => { if (run.length > 1) kept.push({ ...s, points: run }); run = []; };
+    for (const q of s.points) {
+      if (Math.hypot(q.x - p.x, q.y - p.y) <= radius) flush();
+      else run.push(q);
+    }
+    flush();
+  }
+  return { ...g, rakeStrokes: kept };
 }
 
 export function spawnLeaf(g: Garden, p: { x: number; y: number }, now: number): Garden {

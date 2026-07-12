@@ -8,6 +8,7 @@ import { Moths } from './render/moths';
 import { ClaudingView } from './render/claudingView';
 import { Critters } from './render/critters';
 import { SandPatch, LeafSprites, SAND_RECT } from './render/sand';
+import { SandTools, type ToolId } from './render/sandTools';
 import { FallingLeaves, TREE } from './render/fallingLeaves';
 import { CeremonyDirector } from './render/ceremony';
 import { ClaudingBrain } from './core/clauding';
@@ -15,8 +16,9 @@ import { timeOfDay, season } from './core/clock';
 import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
-  activeResponses, addRakeStroke, recordOffering, spawnLeaf, sweepLeavesNear,
-  tickWeathering, treeMature, treeScale, type Garden, type RakeStroke, type ResponseId,
+  activeResponses, addRakeStroke, eraseStrokesNear, recordOffering, spawnLeaf,
+  sweepLeavesNear, tickWeathering, treeMature, treeScale,
+  type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
 import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isAmbientOn, setAmbient, resumeAmbients, ambientPlaying } from './render/sounds';
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
@@ -309,6 +311,14 @@ async function boot() {
   sand.redraw(garden, Date.now());
   leaves.sync(garden);
 
+  // click the sand and the camera leans in over it; tools appear on the ground
+  const GARDEN_VIEW = { cx: 310, cy: 227.5, z: 4 }; // framed on the sand bed
+  let zoomed = false;
+  let zoomT = 0; // eased toward zoomed in the loop
+  const viewNow = { cx: VIRTUAL_W / 2, cy: VIRTUAL_H / 2, z: 1 };
+  const tools = new SandTools();
+  scene.add(tools.group);
+
   const falling = new FallingLeaves();
   scene.add(falling.group);
 
@@ -367,7 +377,8 @@ async function boot() {
     await listen('shrine://quiet', () => { quieted = !quieted; });
     canvas.addEventListener('pointerdown', e => {
       const vy = (e.clientY - canvas.getBoundingClientRect().top) / px.scale;
-      if (vy < 140) getCurrentWindow().startDragging(); // grab the sky to move the window
+      // grab the sky to move the window — but not while leaning over the sand
+      if (vy < 140 && !zoomed && zoomT < 0.05) getCurrentWindow().startDragging();
     });
     const { TauriBridge } = await import('./bridge/tauri');
     const pending = bridge instanceof TauriBridge ? await bridge.processPending() : [];
@@ -391,35 +402,59 @@ async function boot() {
   }
 
   // --- rake, sweep, and pet ---
+  // pointer → world virtual px, seen through wherever the camera is leaning
   const toVirtual = (e: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left) / px.scale, y: (e.clientY - r.top) / px.scale };
+    const rx = (e.clientX - r.left) / px.scale, ry = (e.clientY - r.top) / px.scale;
+    return {
+      x: viewNow.cx + (rx - VIRTUAL_W / 2) / viewNow.z,
+      y: viewNow.cy + (ry - VIRTUAL_H / 2) / viewNow.z,
+    };
   };
   const toScene = (p: { x: number; y: number }) =>
     ({ x: p.x - VIRTUAL_W / 2, y: VIRTUAL_H / 2 - p.y });
   const CURSOR_RAKE = 'url(./cursors/rake.png) 4 20, grab';
   const CURSOR_PAW = 'url(./cursors/paw.png) 12 12, pointer';
   let liveStroke: RakeStroke | null = null;
+  let smoothed = false; // the board pressed something flat since the last save
   canvas.addEventListener('pointerdown', e => {
     const p = toVirtual(e);
     if (critters.petAt(toScene(p), performance.now() / 1000)) { mew(); return; } // pet > chores
     if (blueSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the blue spirit
     if (mossSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the moss spirit
+    const picked = tools.hit(p);
+    if (picked) { tools.select(picked); return; }
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
-    if (g === 'rake') liveStroke = { points: [p], t: Date.now() };
     if (g === 'sweep') {
       garden = sweepLeavesNear(garden, p, 10);
       leaves.sync(garden);
+      return;
     }
+    if (g === 'rake') {
+      if (!zoomed) { zoomed = true; return; } // the garden invites you closer
+      if (tools.current === 'ring') {
+        garden = addRakeStroke(garden, { points: [p], t: Date.now(), tool: 'ring' });
+        sand.redraw(garden, Date.now());
+        void save();
+      } else if (tools.current === 'smooth') {
+        garden = eraseStrokesNear(garden, p, 4);
+        smoothed = true;
+        sand.redraw(garden, Date.now());
+      } else {
+        liveStroke = { points: [p], t: Date.now(), tool: tools.current };
+      }
+      return;
+    }
+    if (zoomed) zoomed = false; // clicked the open garden — step back
   });
   canvas.addEventListener('pointermove', e => {
     const p = toVirtual(e);
     if (liveStroke) {
       const lastP = liveStroke.points[liveStroke.points.length - 1];
-      if (Math.hypot(p.x - lastP.x, p.y - lastP.y) >= 2) {
+      if (Math.hypot(p.x - lastP.x, p.y - lastP.y) >= 2 / viewNow.z) {
         // clamp to the sand bed
         p.x = Math.min(Math.max(p.x, SAND_RECT.x + 1), SAND_RECT.x + SAND_RECT.w - 1);
-        p.y = Math.min(Math.max(p.y, SAND_RECT.y + 2), SAND_RECT.y + SAND_RECT.h - 2);
+        p.y = Math.min(Math.max(p.y, SAND_RECT.y + 1), SAND_RECT.y + SAND_RECT.h - 1);
         liveStroke.points.push(p);
         sand.redraw(garden, Date.now(), liveStroke);
       }
@@ -431,10 +466,15 @@ async function boot() {
       if (g === 'sweep') {
         garden = sweepLeavesNear(garden, p, 10);
         leaves.sync(garden);
+      } else if (g === 'rake' && zoomed && tools.current === 'smooth') {
+        garden = eraseStrokesNear(garden, p, 4);
+        smoothed = true;
+        sand.redraw(garden, Date.now());
       }
     }
     canvas.style.cursor = critters.catAt(toScene(p))
       ? CURSOR_PAW
+      : tools.hit(p) ? 'pointer'
       : classifyGesture(p, SAND_RECT, garden.leaves) === 'none' ? 'default' : CURSOR_RAKE;
   });
   const endStroke = () => {
@@ -443,10 +483,12 @@ async function boot() {
       void save();
     }
     liveStroke = null;
+    if (smoothed) { smoothed = false; void save(); }
     sand.redraw(garden, Date.now());
   };
   canvas.addEventListener('pointerup', () => { endStroke(); void save(); });
   canvas.addEventListener('pointerleave', endStroke);
+  addEventListener('keydown', e => { if (e.key === 'Escape') zoomed = false; });
 
   // --- leaves fall from the tree over the hours ---
   const spawnSeasonalLeaves = () => {
@@ -487,6 +529,19 @@ async function boot() {
             setAmbient('rain', c.slice(5) === '1');
           } else if (c.startsWith('wind:')) {
             setAmbient('wind', c.slice(5) === '1');
+          } else if (c.startsWith('zoom:')) {
+            zoomed = c.slice(5) === '1';
+          } else if (c.startsWith('tool:')) {
+            tools.select(c.slice(5) as ToolId);
+          } else if (c.startsWith('stroke:')) {
+            const pts = c.slice(7).split(';').map(s => {
+              const [x, y] = s.split(',').map(Number);
+              return { x, y };
+            });
+            const tool = tools.current === 'smooth' ? 'rake' : tools.current;
+            if (tool === 'ring') garden = addRakeStroke(garden, { points: [pts[0]], t: Date.now(), tool });
+            else garden = addRakeStroke(garden, { points: pts, t: Date.now(), tool });
+            sand.redraw(garden, Date.now());
           }
         }
       } catch { /* dev server gone */ }
@@ -545,6 +600,21 @@ async function boot() {
     tree.rotation.z = lean;
     tree.position.x = TREE.x - Math.sin(lean) * (TREE.h * treeK) / 2;
 
+    // the garden close-up — the camera leans in over the sand and back out
+    zoomT += ((zoomed ? 1 : 0) - zoomT) * Math.min(1, dt * 6);
+    if (Math.abs((zoomed ? 1 : 0) - zoomT) < 0.002) zoomT = zoomed ? 1 : 0;
+    const ez = zoomT * zoomT * (3 - 2 * zoomT); // smoothstep: gentle at both ends
+    viewNow.cx = VIRTUAL_W / 2 + (GARDEN_VIEW.cx - VIRTUAL_W / 2) * ez;
+    viewNow.cy = VIRTUAL_H / 2 + (GARDEN_VIEW.cy - VIRTUAL_H / 2) * ez;
+    // interpolate the visible width, not the zoom factor, so the glide feels even
+    viewNow.z = VIRTUAL_W / (VIRTUAL_W + (VIRTUAL_W / GARDEN_VIEW.z - VIRTUAL_W) * ez);
+    camera.zoom = viewNow.z;
+    camera.position.x = viewNow.cx - VIRTUAL_W / 2;
+    camera.position.y = VIRTUAL_H / 2 - viewNow.cy;
+    camera.updateProjectionMatrix();
+    sand.setZoomed(zoomT > 0.5);
+    tools.fade(ez);
+
     sky.update(d, t);
     moths.update(t, timeOfDay(d) === 'night' && lights.candlesLit);
     lanternBugs.update(t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
@@ -553,7 +623,7 @@ async function boot() {
     clouds.update(dt, t, ambientPlaying('rain'));
     rainFx.update(dt, t, ambientPlaying('rain'));
     windWisps.update(dt, t, ambientPlaying('wind'));
-    blueSpirit.update(dt, t, ambientPlaying('rain'), timeOfDay(d) === 'night');
+    blueSpirit.update(dt, t, ambientPlaying('rain'), timeOfDay(d) === 'night', zoomed || zoomT > 0.05);
     mossSpirit.update(dt, t, timeOfDay(d) === 'dusk' || timeOfDay(d) === 'night');
 
     px.frame(scene, camera);

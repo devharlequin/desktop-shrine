@@ -14,7 +14,7 @@ import { loadTex } from './scene';
  * happy hop. He never speaks; nothing here does.
  */
 
-type Mode = 'idle' | 'toRain' | 'inRain' | 'toHome' | 'gaze';
+type Mode = 'idle' | 'toRain' | 'inRain' | 'toHome' | 'gaze' | 'toAside' | 'aside';
 
 export class BlueSpirit {
   group = new THREE.Group();
@@ -24,6 +24,7 @@ export class BlueSpirit {
 
   private home: THREE.Vector3;
   private rainX: number;         // where he stands when he goes out into the rain
+  private asideX: number;        // off the sand, where he watches the raking
   private mode: Mode = 'idle';
   private facing = -1;           // faces left (toward the shrine) by default
   private nextSpark = 0;
@@ -34,6 +35,7 @@ export class BlueSpirit {
     this.home = home.clone();
     this.baseY = home.y;
     this.rainX = home.x - 22;    // a few steps out from his tucked corner
+    this.asideX = home.x - 34;   // clear of the sand bed, garden manners
 
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(16, 20),
@@ -67,7 +69,8 @@ export class BlueSpirit {
     this.floating.push({ m, born: t, vy: 6 + Math.random() * 4 });
   }
 
-  update(dt: number, t: number, raining: boolean, night: boolean) {
+  /** aside = someone is leaning over the sand he stands on; he steps off it. */
+  update(dt: number, t: number, raining: boolean, night: boolean, aside = false) {
     // rising sparks of wonder, fading as they climb
     for (const f of [...this.floating]) {
       const age = t - f.born;
@@ -77,8 +80,12 @@ export class BlueSpirit {
       if (age > 2.0) { this.sparks.remove(f.m); this.floating.splice(this.floating.indexOf(f), 1); }
     }
 
-    // decide what he wants to be doing
-    if (raining && this.mode !== 'toRain' && this.mode !== 'inRain') this.mode = 'toRain';
+    // decide what he wants to be doing (stepping aside is simple politeness
+    // and comes before everything, even the rain)
+    if (aside) {
+      if (this.mode !== 'toAside' && this.mode !== 'aside') this.mode = 'toAside';
+    } else if (this.mode === 'toAside' || this.mode === 'aside') this.mode = 'toHome';
+    else if (raining && this.mode !== 'toRain' && this.mode !== 'inRain') this.mode = 'toRain';
     else if (!raining && (this.mode === 'toRain' || this.mode === 'inRain')) this.mode = 'toHome';
     else if (!raining && night && this.mode === 'idle') this.mode = 'gaze';
     else if (!night && this.mode === 'gaze') this.mode = 'idle';
@@ -102,6 +109,12 @@ export class BlueSpirit {
     switch (this.mode) {
       case 'toRain': walkTo(this.rainX, 'inRain'); break;
       case 'toHome': walkTo(this.home.x, 'idle'); break;
+      case 'toAside': walkTo(this.asideX, 'aside'); break;
+      case 'aside':
+        // stands at the sand's edge, turned to watch the raking
+        this.facing = 1; this.mesh.scale.x = 1;
+        lift = Math.sin(t * 1.1) * 0.5;
+        break;
       case 'inRain':
         // stands in the open, face up, swaying happily in the rain he loves
         this.facing = -1; this.mesh.scale.x = -1;
@@ -122,7 +135,7 @@ export class BlueSpirit {
         break;
     }
 
-    if (this.mode !== 'toRain' && this.mode !== 'toHome') {
+    if (this.mode !== 'toRain' && this.mode !== 'toHome' && this.mode !== 'toAside') {
       this.mesh.position.y = this.baseY + lift + (hopping ? Math.abs(Math.sin((this.hopUntil - t) * 12)) * 3 : 0);
       this.mesh.rotation.z = hopping ? 0 : lean;
     }

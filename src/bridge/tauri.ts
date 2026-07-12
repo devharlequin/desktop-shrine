@@ -11,11 +11,21 @@ export class TauriBridge implements ShrineBridge {
   kind = 'tauri' as const;
 
   async loadGarden(): Promise<Garden> {
-    try {
-      return parseGarden(await invoke<string>('read_text', { path: 'garden.json' }));
-    } catch {
-      return parseGarden(null);
-    }
+    const read = async (name: string) => {
+      try {
+        return parseGarden(await invoke<string>('read_text', { path: name }));
+      } catch {
+        return parseGarden(null);
+      }
+    };
+    const g = await read('garden.json');
+    const bare = !g.offeringCount && !g.rakeStrokes.length && !g.leaves.length && !g.plantedAt;
+    if (!bare) return g;
+    // an empty read where a garden once stood — a failed read must never
+    // become a fresh garden that the next save makes permanent
+    const bak = await read('garden.json.bak');
+    const bakBare = !bak.offeringCount && !bak.rakeStrokes.length && !bak.leaves.length && !bak.plantedAt;
+    return bakBare ? g : bak;
   }
 
   async saveGarden(g: Garden): Promise<void> {

@@ -1,24 +1,55 @@
 import * as THREE from 'three';
 import { VIRTUAL_W, VIRTUAL_H } from './renderer';
-import type { Garden, RakeStroke } from '../core/garden';
+import type { Garden, RakeStroke, SandTool } from '../core/garden';
 import { strokeStrength } from '../core/garden';
 
 /** The user's raked-sand patch, foreground right of the steps. Virtual px. */
 export const SAND_RECT = { x: 264, y: 224, w: 92, h: 26 };
 
+/** Extra texels per virtual px in the close-up texture — grooves drawn while
+ *  zoomed keep their fine detail instead of snapping to the far view's grid. */
+const HI = 4;
+
 const toScene = (r: { x: number; y: number; w: number; h: number }) =>
   new THREE.Vector3(r.x + r.w / 2 - VIRTUAL_W / 2, VIRTUAL_H / 2 - (r.y + r.h / 2), 30);
 
+const DARK = 'rgba(24,20,40,';
+const LIGHT = 'rgba(130,122,158,';
+
+/** Tine offsets per tool, in virtual px across the stroke. */
+const TINES: Record<Exclude<SandTool, 'ring'>, number[]> = {
+  rake: [-2, 0, 2],
+  wide: [-5, -2.5, 0, 2.5, 5],
+  point: [0],
+};
+
 export class SandPatch {
   mesh: THREE.Mesh;
-  private cv = document.createElement('canvas');
+  private cv = document.createElement('canvas');   // far view, 1 texel : 1 vpx
+  private cvHi = document.createElement('canvas'); // close-up, HI texels : 1 vpx
   private tex: THREE.CanvasTexture;
+  private texHi: THREE.CanvasTexture;
+  private grain: { x: number; y: number; c: string }[] = [];
+  private zoomed = false;
 
   constructor() {
     this.cv.width = SAND_RECT.w;
     this.cv.height = SAND_RECT.h;
+    this.cvHi.width = SAND_RECT.w * HI;
+    this.cvHi.height = SAND_RECT.h * HI;
     this.tex = new THREE.CanvasTexture(this.cv);
     this.tex.magFilter = this.tex.minFilter = THREE.NearestFilter;
+    this.texHi = new THREE.CanvasTexture(this.cvHi);
+    this.texHi.magFilter = this.texHi.minFilter = THREE.NearestFilter;
+    // a scatter of lighter and darker grains, fixed for the session, so the
+    // close-up reads as sand rather than a flat plane
+    for (let i = 0; i < 380; i++) {
+      this.grain.push({
+        x: Math.random() * this.cvHi.width,
+        y: Math.random() * this.cvHi.height,
+        c: Math.random() < 0.5 ? 'rgba(110,102,138,0.5)' : 'rgba(64,58,84,0.5)',
+      });
+    }
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(SAND_RECT.w, SAND_RECT.h),
       new THREE.MeshLambertMaterial({ map: this.tex, transparent: true }),
@@ -26,28 +57,65 @@ export class SandPatch {
     this.mesh.position.copy(toScene(SAND_RECT));
   }
 
-  /** live = the stroke currently being drawn (not yet committed to the garden) */
-  redraw(g: Garden, now: number, live?: RakeStroke | null) {
-    const c = this.cv.getContext('2d')!;
-    c.clearRect(0, 0, this.cv.width, this.cv.height);
-    c.fillStyle = '#514a66';
-    c.fillRect(0, 0, this.cv.width, this.cv.height);
-    // soft darker rim so it reads as a bed of sand, not a rectangle
-    c.strokeStyle = 'rgba(24,20,40,0.9)';
-    c.strokeRect(0.5, 0.5, this.cv.width - 1, this.cv.height - 1);
-    for (const s of g.rakeStrokes) this.drawStroke(c, s, strokeStrength(s, now));
-    if (live && live.points.length > 1) this.drawStroke(c, live, 1);
-    this.tex.needsUpdate = true;
+  /** The close-up swaps in the fine texture; stepping back restores the far one. */
+  setZoomed(z: boolean) {
+    if (z === this.zoomed) return;
+    this.zoomed = z;
+    const m = this.mesh.material as THREE.MeshLambertMaterial;
+    m.map = z ? this.texHi : this.tex;
+    m.needsUpdate = true;
   }
 
-  private drawStroke(c: CanvasRenderingContext2D, s: RakeStroke, k: number) {
-    if (k <= 0 || s.points.length < 2) return;
-    for (const off of [-2, 0, 2]) { // three tines
-      c.strokeStyle = off === 0 ? `rgba(24,20,40,${0.85 * k})` : `rgba(130,122,158,${0.55 * k})`;
-      c.lineWidth = 1;
+  /** live = the stroke currently being drawn (not yet committed to the garden) */
+  redraw(g: Garden, now: number, live?: RakeStroke | null) {
+    this.paint(this.cv.getContext('2d')!, 1, g, now, live, false);
+    this.paint(this.cvHi.getContext('2d')!, HI, g, now, live, true);
+    this.tex.needsUpdate = true;
+    this.texHi.needsUpdate = true;
+  }
+
+  private paint(
+    c: CanvasRenderingContext2D, res: number,
+    g: Garden, now: number, live: RakeStroke | null | undefined, grain: boolean,
+  ) {
+    const w = SAND_RECT.w * res, h = SAND_RECT.h * res;
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#514a66';
+    c.fillRect(0, 0, w, h);
+    if (grain) for (const p of this.grain) { c.fillStyle = p.c; c.fillRect(p.x, p.y, 1, 1); }
+    // soft darker rim so it reads as a bed of sand, not a rectangle
+    c.strokeStyle = DARK + '0.9)';
+    c.lineWidth = res;
+    c.strokeRect(res / 2, res / 2, w - res, h - res);
+    for (const s of g.rakeStrokes) this.drawStroke(c, res, s, strokeStrength(s, now));
+    if (live) this.drawStroke(c, res, live, 1);
+  }
+
+  private drawStroke(c: CanvasRenderingContext2D, res: number, s: RakeStroke, k: number) {
+    if (k <= 0 || s.points.length < 1) return;
+    if (s.tool === 'ring') return this.drawRing(c, res, s, k);
+    if (s.points.length < 2) return;
+    for (const off of TINES[s.tool ?? 'rake']) {
+      c.strokeStyle = off === 0 ? `${DARK}${0.85 * k})` : `${LIGHT}${0.55 * k})`;
+      c.lineWidth = off === 0 ? Math.max(1, res * 0.6) : Math.max(1, res * 0.45);
       c.beginPath();
-      c.moveTo(s.points[0].x - SAND_RECT.x, s.points[0].y - SAND_RECT.y + off);
-      for (const p of s.points.slice(1)) c.lineTo(p.x - SAND_RECT.x, p.y - SAND_RECT.y + off);
+      c.moveTo((s.points[0].x - SAND_RECT.x) * res, (s.points[0].y - SAND_RECT.y + off) * res);
+      for (const p of s.points.slice(1)) c.lineTo((p.x - SAND_RECT.x) * res, (p.y - SAND_RECT.y + off) * res);
+      c.stroke();
+    }
+  }
+
+  /** The ring stamp: concentric grooves, as the rakes leave around a stone. */
+  private drawRing(c: CanvasRenderingContext2D, res: number, s: RakeStroke, k: number) {
+    const x = (s.points[0].x - SAND_RECT.x) * res, y = (s.points[0].y - SAND_RECT.y) * res;
+    const rings: [number, string, number][] = [
+      [4, DARK, 0.85], [5.1, LIGHT, 0.55], [7, DARK, 0.75], [8.1, LIGHT, 0.5],
+    ];
+    for (const [r, col, a] of rings) {
+      c.strokeStyle = `${col}${a * k})`;
+      c.lineWidth = Math.max(1, res * 0.5);
+      c.beginPath();
+      c.arc(x, y, r * res, 0, Math.PI * 2);
       c.stroke();
     }
   }
