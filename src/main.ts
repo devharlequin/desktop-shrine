@@ -346,6 +346,22 @@ async function boot() {
   fox.onAte = () => { garden = foxAte(garden); fox.trust = foxTrust(garden); syncFoxYard(); save(); };
   fox.onGift = kind => { garden = addFoxGift(garden, kind, Date.now()); syncFoxYard(); save(); };
 
+  // --- the woods behind everything: the shrine is nestled, not stranded.
+  // Two treelines between the moon (z=4) and the ground (z=8); the ground
+  // hides their feet below the horizon. Old growth — they answer the
+  // seasons without waiting to mature. ---
+  const woodsStrip = (tex: string, h: number, z: number) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(440, h),
+      new THREE.MeshLambertMaterial({ map: loadTex(tex), transparent: true, alphaTest: 0.01 }),
+    );
+    m.position.set(0, -52 + h / 2, z); // feet tucked under the horizon (~-50)
+    scene.add(m);
+    return m;
+  };
+  const woodsFar = woodsStrip('woods_far', 34, 5);
+  const woodsNear = woodsStrip('woods_near', 44, 6.5);
+
   // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
     new THREE.PlaneGeometry(TREE.w, TREE.h),
@@ -362,6 +378,13 @@ async function boot() {
     (tree.material as THREE.MeshLambertMaterial).color.setHex(
       treeMature(garden, Date.now()) ? SEASON_TINT[season(now())] : 0xffffff,
     );
+    // the woods take the season too, but half-lost in haze — so the one
+    // warm tree you tend never blends into the many cool ones you don't
+    const woodsTint = new THREE.Color(SEASON_TINT[season(now())])
+      .lerp(new THREE.Color(0x9aa4b4), 0.5);
+    for (const w of [woodsFar, woodsNear]) {
+      (w.material as THREE.MeshLambertMaterial).color.copy(woodsTint);
+    }
     return k;
   };
   let treeK = growTree();
