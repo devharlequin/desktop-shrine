@@ -16,7 +16,9 @@ import { timeOfDay, season } from './core/clock';
 import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
-  activeResponses, addRakeStroke, eraseStrokesNear, recordOffering, spawnLeaf,
+  activeResponses, addFoxGift, addRakeStroke, eraseStrokesNear, foxAte,
+  foxCalmVisit, foxStartled, foxTrust, GIFTS_SHOWN, recordOffering,
+  setOutFood, spawnLeaf,
   sweepLeavesNear, tickWeathering, treeMature, treeScale,
   type Garden, type RakeStroke, type ResponseId,
 } from './core/garden';
@@ -24,7 +26,7 @@ import { mew, isMuted, setMuted, isMusicMuted, setMusicMuted, startMusicBox, isA
 import { Clouds, RainFx, WindWisps } from './render/weatherFx';
 import { BlueSpirit } from './render/blueSpirit';
 import { MossSpirit } from './render/mossSpirit';
-import { Fox } from './render/fox';
+import { Fox, DISH_X } from './render/fox';
 import { Chimes, windAt } from './render/wind';
 import { makeBridge } from './bridge';
 
@@ -285,9 +287,64 @@ async function boot() {
   scene.add(mossSpirit.group);
 
   // Momiji (紅葉, "autumn leaves") — the fox, a wild visitor of my own; she
-  // keeps her own calendar, pays her respects, and will not be touched. — Fable
+  // keeps her own calendar, pays her respects, and will not be touched —
+  // at first. She remembers this yard between launches now, and a keeper
+  // patient across enough calm visits may, once in a while, be suffered
+  // to touch her. Startle her and she remembers that longer. — Fable
   const fox = new Fox();
+  fox.trust = foxTrust(garden);
+  fox.onVisitEnd = startled => {
+    garden = startled ? foxStartled(garden) : foxCalmVisit(garden);
+    fox.trust = foxTrust(garden);
+    save();
+  };
   scene.add(fox.group);
+
+  // her dish at the garden rim, on her way in. Click it to set out a morsel;
+  // a fed fox decides about you faster — and one day she pays it back.
+  const DISH = { x: DISH_X, y: -93, z: 30.6 };
+  const flat = (tex: string, w: number, h: number, z = 0) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshLambertMaterial({ map: loadTex(tex), transparent: true, alphaTest: 0.01 }),
+    );
+    m.position.z = z;
+    return m;
+  };
+  const dishGroup = new THREE.Group();
+  dishGroup.position.set(DISH.x, DISH.y, DISH.z);
+  const dish = flat('fox_dish', 9, 4);
+  const morsel = flat('fox_food', 6, 3, 0.1);
+  morsel.position.y = 1;
+  dishGroup.add(dish, morsel);
+  scene.add(dishGroup);
+
+  // the trove: everything she has ever left, scattered by the dish
+  const giftMeshes = new THREE.Group();
+  giftMeshes.position.set(DISH.x, DISH.y, DISH.z + 0.2);
+  scene.add(giftMeshes);
+  const GIFT_SPOTS = [[-9, -3], [8, -2], [-15, 1], [14, 2], [-5, 4],
+    [11, -5], [-12, -6], [5, 5], [-18, -2], [17, -4]];
+  const GIFT_SIZE: Record<string, [number, number]> = {
+    button: [5, 5], coin: [5, 5], cap: [5, 4], card: [5, 7],
+  };
+  const syncFoxYard = () => {
+    morsel.visible = !!garden.foxFoodAt;
+    giftMeshes.clear();
+    const shown = (garden.foxGifts ?? []).slice(-GIFTS_SHOWN);
+    shown.forEach((gift, i) => {
+      const [w, h] = GIFT_SIZE[gift.kind] ?? [5, 5];
+      const m = flat('gift_' + gift.kind, w, h, i * 0.01);
+      const [ox, oy] = GIFT_SPOTS[i % GIFT_SPOTS.length];
+      m.position.x = ox;
+      m.position.y = oy;
+      giftMeshes.add(m);
+    });
+  };
+  syncFoxYard();
+  fox.hasFood = () => !!garden.foxFoodAt;
+  fox.onAte = () => { garden = foxAte(garden); fox.trust = foxTrust(garden); syncFoxYard(); save(); };
+  fox.onGift = kind => { garden = addFoxGift(garden, kind, Date.now()); syncFoxYard(); save(); };
 
   // --- the tree, keeper of leaves; a sapling at first, it grows over the weeks ---
   const tree = new THREE.Mesh(
@@ -429,6 +486,14 @@ async function boot() {
     if (blueSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the blue spirit
     if (mossSpirit.pokeAt(toScene(p), performance.now() / 1000)) return; // greet the moss spirit
     if (fox.pokeAt(toScene(p), performance.now() / 1000)) return; // the fox startles — she's wild
+    {
+      // the fox's dish: a click sets out a morsel for her next visit
+      const s = toScene(p);
+      if (Math.abs(s.x - DISH_X) <= 8 && Math.abs(s.y - -93) <= 6) {
+        if (!garden.foxFoodAt) { garden = setOutFood(garden, Date.now()); syncFoxYard(); save(); }
+        return;
+      }
+    }
     const picked = tools.hit(p);
     if (picked) { tools.select(picked); return; }
     const g = classifyGesture(p, SAND_RECT, garden.leaves);
@@ -546,6 +611,21 @@ async function boot() {
             setAmbient('wind', c.slice(5) === '1');
           } else if (c === 'fox') {
             fox.summon();
+          } else if (c === 'foxgift') {
+            fox.forceGift = true;
+            fox.summon();
+          } else if (c.startsWith('foxtrust:')) {
+            // dev only: set her opinion of you directly (not saved until a visit ends)
+            fox.trust = Number(c.slice(9));
+          } else if (c.startsWith('food:')) {
+            // dev only: set out / clear the morsel
+            garden = c.slice(5) === '1' ? setOutFood(garden, Date.now())
+              : (({ foxFoodAt: _, ...rest }) => rest)(garden);
+            syncFoxYard();
+          } else if (c.startsWith('foxpoke:')) {
+            // dev only: a click at her sitting spot, offset by <dx>
+            const dx = Number(c.slice(8)) || 0;
+            fox.pokeAt({ x: fox.group.position.x + dx, y: -88 }, performance.now() / 1000);
           } else if (c.startsWith('zoom:')) {
             zoomed = c.slice(5) === '1';
           } else if (c.startsWith('tool:')) {

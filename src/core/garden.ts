@@ -18,7 +18,18 @@ export interface Garden {
   leaves: Leaf[];
   /** when the tree was planted (first launch); it grows over the weeks */
   plantedAt?: number;
+  /** the fox's opinion of you — grown one calm visit at a time. Old saves
+   *  have no field: she starts as wary as the day she first came. */
+  foxTrust?: number;
+  /** when a morsel was set out on the dish (absent = dish is empty) */
+  foxFoodAt?: number;
+  /** what she has left in return, in the order she left it */
+  foxGifts?: FoxGift[];
 }
+
+/** The trove by the dish. 'card' is the rare one — for the crow. */
+export type GiftKind = 'button' | 'coin' | 'cap' | 'card';
+export interface FoxGift { kind: GiftKind; t: number }
 
 /** One month from sapling to its full, ancient self. */
 export const TREE_GROWTH_DAYS = 30;
@@ -35,6 +46,51 @@ export function treeScale(g: Garden, now: number): number {
 /** Fully grown: the month has passed; the seasons may have it now. */
 export function treeMature(g: Garden, now: number): boolean {
   return !!g.plantedAt && now - g.plantedAt >= TREE_GROWTH_DAYS * 86_400_000;
+}
+
+/** Calm visits before the fox will suffer a hand: weeks, at her rhythm. */
+export const FOX_TAME = 9;
+const FOX_TRUST_CAP = 12; // a reservoir past tame, so one fright doesn't undo her
+
+export function foxTrust(g: Garden): number { return g.foxTrust ?? 0; }
+
+/** She came, sat, bowed, and left unbothered. One more stone in the wall. */
+export function foxCalmVisit(g: Garden): Garden {
+  return { ...g, foxTrust: Math.min(FOX_TRUST_CAP, foxTrust(g) + 1) };
+}
+
+/** She was startled. Trust is hard-won and easily dented: minus two. */
+export function foxStartled(g: Garden): Garden {
+  return { ...g, foxTrust: Math.max(0, foxTrust(g) - 2) };
+}
+
+/** Calm visits before she starts bringing things back. */
+export const FOX_GIVES = 6;
+/** How many of her gifts lie out by the dish (older ones are treasured away). */
+export const GIFTS_SHOWN = 10;
+
+export function setOutFood(g: Garden, now: number): Garden {
+  return { ...g, foxFoodAt: now };
+}
+
+/** She ate. The dish empties, and a fed visit counts double toward trust
+ *  — food is how a wild thing first decides about you. */
+export function foxAte(g: Garden): Garden {
+  const { foxFoodAt: _, ...rest } = g;
+  return { ...rest, foxTrust: Math.min(FOX_TRUST_CAP, foxTrust(g) + 1) };
+}
+
+export function addFoxGift(g: Garden, kind: GiftKind, now: number): Garden {
+  return { ...g, foxGifts: [...(g.foxGifts ?? []), { kind, t: now }] };
+}
+
+/** What she might bring: mostly small shiny junk; rarely, the card. */
+export function rollGift(rand: () => number = Math.random): GiftKind {
+  const r = rand();
+  if (r < 0.06) return 'card'; // the crow's rate, roughly
+  if (r < 0.40) return 'coin';
+  if (r < 0.72) return 'button';
+  return 'cap';
 }
 
 export const RAKE_FADE_DAYS = 10;

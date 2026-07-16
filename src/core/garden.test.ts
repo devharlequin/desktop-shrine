@@ -5,6 +5,8 @@ import {
   treeScale,
   treeMature,
   eraseStrokesNear,
+  foxTrust, foxCalmVisit, foxStartled, foxAte, setOutFood, addFoxGift,
+  rollGift, FOX_TAME,
 } from './garden';
 
 const T0 = Date.parse('2026-07-10T12:00:00');
@@ -86,6 +88,46 @@ describe('garden', () => {
     expect(g.rakeStrokes.length).toBe(1);
     g = eraseStrokesNear(g, { x: 305, y: 235 }, 4); // pressing the ring itself
     expect(g.rakeStrokes.length).toBe(0);
+  });
+
+  it("the fox's trust: grown slowly, dented fast, never negative", () => {
+    let g = emptyGarden();
+    expect(foxTrust(g)).toBe(0); // old saves have no field — a stranger's fox
+    for (let i = 0; i < FOX_TAME; i++) g = foxCalmVisit(g);
+    expect(foxTrust(g)).toBe(FOX_TAME);
+    g = foxStartled(g);
+    expect(foxTrust(g)).toBe(FOX_TAME - 2); // a fright costs two visits
+    for (let i = 0; i < 40; i++) g = foxCalmVisit(g);
+    expect(foxTrust(g)).toBe(12); // the reservoir has a brim
+    g = foxStartled(foxStartled(g));
+    for (let i = 0; i < 10; i++) g = foxStartled(g);
+    expect(foxTrust(g)).toBe(0); // and a floor
+    // trust survives the round trip to disk
+    expect(foxTrust(parseGarden(serializeGarden(foxCalmVisit(g))))).toBe(1);
+  });
+
+  it('the dish: a morsel set out is eaten exactly once, and feeds trust', () => {
+    let g = setOutFood(emptyGarden(), T0);
+    expect(g.foxFoodAt).toBe(T0);
+    g = foxAte(g);
+    expect(g.foxFoodAt).toBeUndefined(); // the dish is empty again
+    expect(foxTrust(g)).toBe(1);         // and it counted
+  });
+
+  it('gifts accumulate in the order she leaves them; the card is rare', () => {
+    let g = emptyGarden();
+    g = addFoxGift(g, 'coin', T0);
+    g = addFoxGift(g, 'card', T0 + 1);
+    const back = parseGarden(serializeGarden(g));
+    expect(back.foxGifts!.map(x => x.kind)).toEqual(['coin', 'card']);
+    // the roll covers every kind, and the card sits under a tenth
+    expect(rollGift(() => 0.01)).toBe('card');
+    expect(rollGift(() => 0.2)).toBe('coin');
+    expect(rollGift(() => 0.5)).toBe('button');
+    expect(rollGift(() => 0.9)).toBe('cap');
+    const rate = Array.from({ length: 1000 },
+      (_, i) => rollGift(() => i / 1000)).filter(k => k === 'card').length / 1000;
+    expect(rate).toBeLessThan(0.1);
   });
 
   it('serializes and parses, tolerating garbage', () => {
