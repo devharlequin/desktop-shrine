@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VIRTUAL_W, VIRTUAL_H } from './renderer';
-import type { Garden, RakeStroke, SandTool } from '../core/garden';
-import { strokeStrength } from '../core/garden';
+import type { FoxPrint, Garden, RakeStroke, SandTool } from '../core/garden';
+import { printStrength, strokeStrength } from '../core/garden';
 
 /** The user's raked-sand patch, foreground right of the steps. Virtual px. */
 export const SAND_RECT = { x: 264, y: 224, w: 92, h: 26 };
@@ -88,7 +88,27 @@ export class SandPatch {
     c.lineWidth = res;
     c.strokeRect(res / 2, res / 2, w - res, h - res);
     for (const s of g.rakeStrokes) this.drawStroke(c, res, s, strokeStrength(s, now));
+    for (const p of g.foxPrints ?? []) this.drawPrint(c, res, p, printStrength(p, now));
     if (live) this.drawStroke(c, res, live, 1);
+  }
+
+  /** A fox's paw, pressed into the sand: one pad, three toes above it. */
+  private drawPrint(c: CanvasRenderingContext2D, res: number, p: FoxPrint, k: number) {
+    if (k <= 0) return;
+    const x = (p.x - SAND_RECT.x) * res, y = (p.y - SAND_RECT.y) * res;
+    c.fillStyle = `${DARK}${0.75 * k})`;
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.5, res * 0.7), Math.max(0.5, res * 0.55), 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = `${DARK}${0.6 * k})`;
+    for (const tx of [-0.7, 0, 0.7]) {
+      c.beginPath();
+      c.arc(x + tx * res, y - res * 0.9, Math.max(0.4, res * 0.22), 0, Math.PI * 2);
+      c.fill();
+    }
+    // the pressed rim of sand, catching light below the pad
+    c.fillStyle = `${LIGHT}${0.35 * k})`;
+    c.fillRect(x - res * 0.6, y + res * 0.6, res * 1.2, Math.max(0.5, res * 0.3));
   }
 
   private drawStroke(c: CanvasRenderingContext2D, res: number, s: RakeStroke, k: number) {

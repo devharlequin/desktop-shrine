@@ -25,6 +25,22 @@ export interface Garden {
   foxFoodAt?: number;
   /** what she has left in return, in the order she left it */
   foxGifts?: FoxGift[];
+  /** paw prints in the sand from her night crossings — their own layer,
+   *  never part of rakeStrokes; shallow, so they fade fast */
+  foxPrints?: FoxPrint[];
+}
+
+export interface FoxPrint { x: number; y: number; t: number }
+/** Prints are shallow — gone in a few days where grooves last ten. */
+export const PRINT_FADE_DAYS = 3;
+
+export function addFoxPrint(g: Garden, p: { x: number; y: number }, now: number): Garden {
+  return { ...g, foxPrints: [...(g.foxPrints ?? []), { ...p, t: now }] };
+}
+
+/** 0..1 visual depth of a print as the sand settles back. */
+export function printStrength(p: FoxPrint, now: number): number {
+  return Math.max(0, 1 - (now - p.t) / (PRINT_FADE_DAYS * 86_400_000));
 }
 
 /** The trove by the dish. 'card' is the rare one — for the crow. */
@@ -144,7 +160,9 @@ export function eraseStrokesNear(g: Garden, p: RakePoint, radius: number): Garde
     }
     flush();
   }
-  return { ...g, rakeStrokes: kept };
+  // the board presses her prints flat too — sand holds no grudges
+  const prints = (g.foxPrints ?? []).filter(q => Math.hypot(q.x - p.x, q.y - p.y) > radius);
+  return { ...g, rakeStrokes: kept, foxPrints: prints };
 }
 
 export function spawnLeaf(g: Garden, p: { x: number; y: number }, now: number): Garden {
@@ -161,6 +179,7 @@ export function tickWeathering(g: Garden, now: number): Garden {
     ...g,
     responses: g.responses.filter(r => r.until > now),
     rakeStrokes: g.rakeStrokes.filter(s => now - s.t < RAKE_FADE_DAYS * DAY),
+    foxPrints: (g.foxPrints ?? []).filter(p => now - p.t < PRINT_FADE_DAYS * DAY),
   };
 }
 

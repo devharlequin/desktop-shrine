@@ -17,7 +17,7 @@ import { OfferingCeremony } from './core/offering';
 import { classifyGesture } from './core/pointerTools';
 import {
   activeResponses, addFoxGift, addRakeStroke, eraseStrokesNear, foxAte,
-  foxCalmVisit, foxStartled, foxTrust, GIFTS_SHOWN, recordOffering,
+  addFoxPrint, foxCalmVisit, foxStartled, foxTrust, GIFTS_SHOWN, recordOffering,
   setOutFood, spawnLeaf,
   sweepLeavesNear, tickWeathering, treeMature, treeScale,
   type Garden, type RakeStroke, type ResponseId,
@@ -397,6 +397,17 @@ async function boot() {
   sand.redraw(garden, Date.now());
   leaves.sync(garden);
 
+  // by night, a comfortable fox sometimes goes home THROUGH the garden —
+  // and the sand remembers her, one paw at a time
+  fox.isNight = () => timeOfDay(now()) === 'night';
+  fox.onPrint = p => {
+    const v = { x: p.x + VIRTUAL_W / 2, y: VIRTUAL_H / 2 - p.y }; // scene -> virtual
+    if (v.x < SAND_RECT.x + 2 || v.x > SAND_RECT.x + SAND_RECT.w - 2
+      || v.y < SAND_RECT.y + 2 || v.y > SAND_RECT.y + SAND_RECT.h - 2) return;
+    garden = addFoxPrint(garden, v, Date.now());
+    sand.redraw(garden, Date.now()); // she is not saved yet; the visit's end does that
+  };
+
   // click the sand and the camera leans in over it; tools appear on the ground
   const GARDEN_VIEW = { cx: 310, cy: 227.5, z: 4 }; // framed on the sand bed
   let zoomed = false;
@@ -636,6 +647,9 @@ async function boot() {
             fox.summon();
           } else if (c === 'foxgift') {
             fox.forceGift = true;
+            fox.summon();
+          } else if (c === 'foxcross') {
+            fox.forceCross = true;
             fox.summon();
           } else if (c.startsWith('foxtrust:')) {
             // dev only: set her opinion of you directly (not saved until a visit ends)

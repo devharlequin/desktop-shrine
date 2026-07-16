@@ -7,6 +7,7 @@ import {
   eraseStrokesNear,
   foxTrust, foxCalmVisit, foxStartled, foxAte, setOutFood, addFoxGift,
   rollGift, FOX_TAME,
+  addFoxPrint, printStrength,
 } from './garden';
 
 const T0 = Date.parse('2026-07-10T12:00:00');
@@ -128,6 +129,27 @@ describe('garden', () => {
     const rate = Array.from({ length: 1000 },
       (_, i) => rollGift(() => i / 1000)).filter(k => k === 'card').length / 1000;
     expect(rate).toBeLessThan(0.1);
+  });
+
+  it('paw prints: their own layer — fading fast, pressed flat by the board', () => {
+    const DAY = 86_400_000;
+    let g = emptyGarden();
+    g = addRakeStroke(g, { points: [{ x: 270, y: 230 }, { x: 300, y: 230 }], t: T0 });
+    g = addFoxPrint(g, { x: 300, y: 240 }, T0);
+    g = addFoxPrint(g, { x: 330, y: 244 }, T0);
+    expect(printStrength(g.foxPrints![0], T0)).toBeCloseTo(1, 5);
+    expect(printStrength(g.foxPrints![0], T0 + 3 * DAY)).toBe(0);
+    // prints outlive the round trip to disk
+    expect(parseGarden(serializeGarden(g)).foxPrints!.length).toBe(2);
+    // the smoothing board wipes a print without touching a distant one
+    g = eraseStrokesNear(g, { x: 301, y: 241 }, 5);
+    expect(g.foxPrints!.map(p => p.x)).toEqual([330]);
+    expect(g.rakeStrokes.length).toBe(1); // strokes split/erase by their own rule
+    // weathering sweeps prints days before it sweeps grooves
+    g = addFoxPrint(g, { x: 280, y: 235 }, T0);
+    const later = tickWeathering(g, T0 + 4 * DAY);
+    expect(later.foxPrints!.length).toBe(0);
+    expect(later.rakeStrokes.length).toBe(1); // grooves last ten days
   });
 
   it('serializes and parses, tolerating garbage', () => {

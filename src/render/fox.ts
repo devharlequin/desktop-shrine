@@ -29,7 +29,7 @@ import { FOX_TAME, FOX_GIVES, rollGift, type GiftKind } from '../core/garden';
  * arrives carrying something small and shiny, and leaves it by the dish.
  */
 
-type Mode = 'away' | 'enter' | 'eat' | 'sit' | 'leave' | 'freeze' | 'bolt' | 'accept';
+type Mode = 'away' | 'enter' | 'eat' | 'sit' | 'leave' | 'cross' | 'freeze' | 'bolt' | 'accept';
 
 const BASE_Y = -88;   // her path through the yard, just north of the sand
 const ENTER_X = 232;  // beyond the window's right edge
@@ -56,6 +56,12 @@ export class Fox {
   onGift?: (kind: GiftKind) => void;
   /** Dev remote only: guarantee the next visit's carry roll. */
   forceGift = false;
+  /** Is it night? Asked when she decides how to leave. */
+  isNight?: () => boolean;
+  /** A paw pressed down at scene point p (her feet, not her center). */
+  onPrint?: (p: { x: number; y: number }) => void;
+  /** Dev remote only: guarantee the next sit ends in a crossing, quickly. */
+  forceCross = false;
 
   private trot: THREE.Mesh;
   private sit: THREE.Mesh;
@@ -77,6 +83,8 @@ export class Fox {
   private ate = false;        // and she has finished it
   private eatFrom = 0;
   private carrying: GiftKind | null = null;
+  private py = BASE_Y;        // path y while crossing the garden
+  private sincePrint = 0;     // distance walked since the last paw print
 
   constructor() {
     const mk = (tex: string, w: number, h: number) => new THREE.Mesh(
@@ -104,6 +112,7 @@ export class Fox {
   private begin() {
     this.mode = 'enter';
     this.x = ENTER_X;
+    this.py = BASE_Y;
     this.bowed = false;
     this.sat = false;
     this.touched = false;
@@ -131,7 +140,7 @@ export class Fox {
     if (!this.group.visible || this.mode === 'bolt' || this.mode === 'freeze'
       || this.mode === 'accept') return false;
     const dx = Math.abs(p.x - this.group.position.x);
-    const dy = Math.abs(p.y - BASE_Y);
+    const dy = Math.abs(p.y - this.group.position.y); // wherever she stands, not just her home row
     if (dx > 14 || dy > 13) return false;
     // trust narrows what counts as an alarm: a stranger's fox spooks at
     // anything within reach; a trusted keeper must nearly touch her
@@ -177,6 +186,7 @@ export class Fox {
             this.sitFrom = t;
             // a trusted yard is worth lingering in: up to ~3 minutes
             this.sitFor = 25 + Math.random() * 45 + 110 * this.warmth();
+            if (this.forceCross) this.sitFor = 5; // dev: don't make me wait
             this.flickAt = t + 4 + Math.random() * 8;
             this.trot.visible = false;
             this.sit.visible = true;
@@ -231,9 +241,34 @@ export class Fox {
         }
         this.sit.rotation.z = rot;
         if (t > this.sitFrom + this.sitFor) {
-          this.mode = 'leave';
+          // by night, once this yard feels half hers, she sometimes goes home
+          // THROUGH the garden instead of around it — paws in the raked sand
+          const crosses = this.forceCross
+            || (!!this.isNight?.() && this.trust >= 3 && Math.random() < 0.5);
+          this.forceCross = false;
+          this.mode = crosses ? 'cross' : 'leave';
           this.faceOut();
+          this.py = BASE_Y;
+          this.sincePrint = 0;
         }
+        break;
+      }
+      case 'cross': {
+        // down and across the sand, then out the way of the rising sun
+        const tgt = this.x < 152 ? { x: 152, y: -116 } : { x: ENTER_X + 8, y: -116 };
+        const dx = tgt.x - this.x, dy = tgt.y - this.py;
+        const d = Math.hypot(dx, dy) || 1;
+        const step = TROT * dt;
+        this.x += (dx / d) * step;
+        this.py += (dy / d) * step;
+        g.position.x = this.x;
+        g.position.y = this.py + Math.abs(Math.sin(t * 9)) * 0.9;
+        this.sincePrint += step;
+        if (this.sincePrint >= 5) {
+          this.sincePrint = 0;
+          this.onPrint?.({ x: this.x, y: this.py - 5 }); // at her feet
+        }
+        if (this.x >= ENTER_X) { this.py = BASE_Y; this.depart(t, false); }
         break;
       }
       case 'accept': {
@@ -255,7 +290,7 @@ export class Fox {
       case 'leave':
         this.x += TROT * 1.15 * dt;
         g.position.x = this.x;
-        g.position.y = BASE_Y + Math.abs(Math.sin(t * 9)) * 0.9;
+        g.position.y = this.py + Math.abs(Math.sin(t * 9)) * 0.9;
         if (this.x >= ENTER_X) this.depart(t, false);
         break;
       case 'freeze':
@@ -265,7 +300,7 @@ export class Fox {
       case 'bolt':
         this.x += BOLT * dt;
         g.position.x = this.x;
-        g.position.y = BASE_Y + Math.abs(Math.sin(t * 22)) * 1.4;
+        g.position.y = this.py + Math.abs(Math.sin(t * 22)) * 1.4;
         if (this.x >= ENTER_X) this.depart(t, true);
         break;
     }
@@ -276,7 +311,8 @@ export class Fox {
     this.sit.visible = false;
     this.trot.scale.x = -1; // flipped: facing right, the way out
     this.trot.rotation.z = 0;
-    this.group.position.y = BASE_Y;
+    this.py = this.group.position.y < BASE_Y - 8 ? this.group.position.y : BASE_Y;
+    this.group.position.y = this.py;
     this.sit.rotation.z = 0;
     // if she still carries her gift, she keeps it — it was not yet given
   }
